@@ -76,7 +76,7 @@ MIGRATION_CUTOVER_PLAN_SUMMARY_PATH = MIGRATION_STAGE_DIR / "Movie Library Migra
 APP_SUPPORT_PREP_SUMMARY_PATH = APP_SUPPORT_DIR / "Movie Library App Support PREP SUMMARY.txt"
 APP_SUPPORT_VERIFY_SUMMARY_PATH = APP_SUPPORT_DIR / "Movie Library App Support VERIFY SUMMARY.txt"
 APP_SUPPORT_README_PATH = APP_SUPPORT_DIR / "README - Movie Library Data Folder.txt"
-UI_VERSION = "UI v28.5.30 - app-support readiness validator"
+UI_VERSION = "UI v28.5.31 - app-support marker preview"
 
 
 def caddy_command_path():
@@ -1608,6 +1608,30 @@ def get_app_support_readiness_data():
     }
 
 
+def get_app_support_marker_preview_data():
+    """Return a read-only preview of the future app-support opt-in marker."""
+    runtime_status = get_runtime_path_status()
+    marker_json = json.dumps({"runtime_mode": "app-support"}, indent=2)
+    config_flag_text = 'runtime_path_mode: "app-support"'
+    return {
+        "about": get_about_info(),
+        "runtime": runtime_status,
+        "marker_path": runtime_status["marker_path"],
+        "marker_json": marker_json,
+        "config_flag_text": config_flag_text,
+        "current_paths": [
+            {"label": "Legacy config", "path": runtime_status["config_path"]},
+            {"label": "Legacy database", "path": runtime_status["db_path"]},
+        ],
+        "future_paths": [
+            {"label": "App Support config", "path": str(APP_SUPPORT_CONFIG_PATH)},
+            {"label": "App Support database", "path": str(APP_SUPPORT_DB_PATH)},
+        ],
+        "warning": "Preview only. This page does not switch runtime mode, create a marker file, edit config.json, copy data, move data, delete data, migrate data, edit Caddy, or change scanner logic.",
+        "app_support_active_warning": "WARNING: app-support mode is already active." if runtime_status["is_app_support"] else "",
+    }
+
+
 def _dir_stats(path):
     """Return a lightweight count/size summary for a directory."""
     root = Path(path)
@@ -2970,6 +2994,7 @@ def get_package_preflight_preview_data():
         "/api/admin/runtime-paths",
         "/api/admin/app-support-switch-preview",
         "/api/admin/app-support-readiness",
+        "/api/admin/app-support-marker-preview",
         "/api/admin/test-dmg-status-preview",
         "/api/admin/app-support-prep-preview",
         "/api/admin/app-support-status-preview",
@@ -6805,7 +6830,7 @@ RUNTIME_PATHS_ADMIN_HTML = """
 """+ADMIN_TABS_HTML+"""
 <section class="panel settings-hero">
   <div><h1>Runtime Paths</h1><p class=muted style="margin:0">Read-only view of the resolved data paths used by the running app.</p></div>
-  <div class=settings-hero-actions><a class=btn href="/admin/app-support-readiness">App Support readiness</a><a class=btn href="/admin/app-support-switch-preview">Switch preview</a><a class=btn href="/admin/app-support-status">App Support status</a><a class=btn href="/admin/package-preflight">Package preflight</a><a class=btn href="/settings">Settings</a></div>
+  <div class=settings-hero-actions><a class=btn href="/admin/app-support-readiness">App Support readiness</a><a class=btn href="/admin/app-support-marker-preview">Marker preview</a><a class=btn href="/admin/app-support-switch-preview">Switch preview</a><a class=btn href="/admin/app-support-status">App Support status</a><a class=btn href="/admin/package-preflight">Package preflight</a><a class=btn href="/settings">Settings</a></div>
 </section>
 <section class="panel settings-card">
   <h2>Runtime mode</h2>
@@ -6837,7 +6862,7 @@ APP_SUPPORT_SWITCH_PREVIEW_HTML = """
 """+ADMIN_TABS_HTML+"""
 <section class="panel settings-hero">
   <div><h1>App Support Switch Preview</h1><p class=muted style="margin:0">Read-only plan for a later explicit runtime mode switch.</p></div>
-  <div class=settings-hero-actions><a class=btn href="/admin/app-support-readiness">App Support readiness</a><a class=btn href="/admin/runtime-paths">Runtime paths</a><a class=btn href="/admin/migration-cutover-plan">Cutover plan</a><a class=btn href="/admin/app-support-status">App Support status</a></div>
+  <div class=settings-hero-actions><a class=btn href="/admin/app-support-readiness">App Support readiness</a><a class=btn href="/admin/app-support-marker-preview">Marker preview</a><a class=btn href="/admin/runtime-paths">Runtime paths</a><a class=btn href="/admin/migration-cutover-plan">Cutover plan</a><a class=btn href="/admin/app-support-status">App Support status</a></div>
 </section>
 <section class="panel settings-card">
   <h2>Current mode</h2>
@@ -6870,7 +6895,7 @@ APP_SUPPORT_READINESS_HTML = """
 """+ADMIN_TABS_HTML+"""
 <section class="panel settings-hero">
   <div><h1>App Support Readiness</h1><p class=muted style="margin:0">Read-only validator for later manual cutover planning.</p></div>
-  <div class=settings-hero-actions><a class=btn href="/admin/app-support-switch-preview">Switch preview</a><a class=btn href="/admin/runtime-paths">Runtime paths</a><a class=btn href="/admin/migration-cutover-plan">Cutover plan</a></div>
+  <div class=settings-hero-actions><a class=btn href="/admin/app-support-marker-preview">Marker preview</a><a class=btn href="/admin/app-support-switch-preview">Switch preview</a><a class=btn href="/admin/runtime-paths">Runtime paths</a><a class=btn href="/admin/migration-cutover-plan">Cutover plan</a></div>
 </section>
 <section class="panel settings-card">
   <h2>Readiness status</h2>
@@ -6889,6 +6914,49 @@ APP_SUPPORT_READINESS_HTML = """
 <section class="panel settings-card" style="margin-top:14px">
   <h2>Safety</h2>
   <div class=warning-note>This page must remain read-only. It does not perform cutover or prepare live data.</div>
+</section>
+</main></body></html>
+"""
+
+
+APP_SUPPORT_MARKER_PREVIEW_HTML = """
+<!doctype html><html><head><meta name=viewport content="width=device-width, initial-scale=1"><title>App Support Marker Preview</title>"""+BASE_STYLE+"""
+<style>
+.marker-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}.marker-card{padding:14px;border-radius:16px;border:1px solid rgba(148,163,184,.16);background:rgba(2,6,23,.28)}.marker-card h3{margin:0 0 7px}.marker-path{font-size:12px;color:var(--muted);word-break:break-all}.marker-code{white-space:pre-wrap;word-break:break-word;padding:12px;border-radius:15px;border:1px solid rgba(148,163,184,.16);background:rgba(2,6,23,.54);color:#dbeafe;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;line-height:1.45}.warning-note{padding:12px;border-radius:16px;border:1px solid rgba(245,158,11,.28);background:rgba(245,158,11,.09);color:#fde68a;line-height:1.45}.safe-note{padding:12px;border-radius:16px;border:1px solid rgba(52,211,153,.22);background:rgba(16,185,129,.10);color:#d1fae5;line-height:1.45}@media(max-width:750px){.settings-hero-actions{display:grid;width:100%}}
+</style></head><body>"""+NAV_HTML+"""
+<main class=shell style="max-width:1100px">
+"""+ADMIN_TABS_HTML+"""
+<section class="panel settings-hero">
+  <div><h1>App Support Marker Preview</h1><p class=muted style="margin:0">Read-only preview of the future runtime mode marker.</p></div>
+  <div class=settings-hero-actions><a class=btn href="/admin/app-support-readiness">App Support readiness</a><a class=btn href="/admin/app-support-switch-preview">Switch preview</a><a class=btn href="/admin/runtime-paths">Runtime paths</a></div>
+</section>
+<section class="panel settings-card">
+  <h2>Current runtime</h2>
+  {% if data.app_support_active_warning %}<div class=warning-note>{{ data.app_support_active_warning }}</div>{% else %}<div class=safe-note>Current runtime mode: {{ data.runtime.mode }}. legacy-app-local remains the active safe default.</div>{% endif %}
+  <div class=marker-grid style="margin-top:12px">
+    <article class=marker-card><h3>App folder</h3><p class=marker-path>{{ data.runtime.app_dir }}</p></article>
+    <article class=marker-card><h3>Data folder</h3><p class=marker-path>{{ data.runtime.data_dir }}</p></article>
+    <article class=marker-card><h3>Cache folder</h3><p class=marker-path>{{ data.runtime.cache_dir }}</p></article>
+    <article class=marker-card><h3>Logs folder</h3><p class=marker-path>{{ data.runtime.logs_dir }}</p></article>
+  </div>
+</section>
+<section class="panel settings-card" style="margin-top:14px">
+  <h2>Future marker</h2>
+  <div class=marker-grid><article class=marker-card><h3>Marker file path</h3><p class=marker-path>{{ data.marker_path }}</p></article><article class=marker-card><h3>Config flag preview</h3><p class=marker-path>{{ data.config_flag_text }}</p></article></div>
+  <h3>Preview JSON only</h3>
+  <pre class=marker-code>{{ data.marker_json }}</pre>
+</section>
+<section class="panel settings-card" style="margin-top:14px">
+  <h2>Current legacy paths</h2>
+  <div class=marker-grid>{% for item in data.current_paths %}<article class=marker-card><h3>{{ item.label }}</h3><p class=marker-path>{{ item.path }}</p></article>{% endfor %}</div>
+</section>
+<section class="panel settings-card" style="margin-top:14px">
+  <h2>Future App Support paths</h2>
+  <div class=marker-grid>{% for item in data.future_paths %}<article class=marker-card><h3>{{ item.label }}</h3><p class=marker-path>{{ item.path }}</p></article>{% endfor %}</div>
+</section>
+<section class="panel settings-card" style="margin-top:14px">
+  <h2>Warnings</h2>
+  <div class=warning-note>{{ data.warning }}</div>
 </section>
 </main></body></html>
 """
@@ -7251,6 +7319,20 @@ def api_admin_app_support_readiness():
     if not require_admin():
         return jsonify({"ok": False, "error": "admin_required"}), 403
     return jsonify({"ok": True, "data": get_app_support_readiness_data()})
+
+
+@app.route("/admin/app-support-marker-preview")
+def app_support_marker_preview():
+    if not require_admin():
+        return redirect(url_for("login") if not require_login() else url_for("index"))
+    return render_template_string(APP_SUPPORT_MARKER_PREVIEW_HTML, active="settings", admin_section="settings", data=get_app_support_marker_preview_data())
+
+
+@app.route("/api/admin/app-support-marker-preview")
+def api_admin_app_support_marker_preview():
+    if not require_admin():
+        return jsonify({"ok": False, "error": "admin_required"}), 403
+    return jsonify({"ok": True, "data": get_app_support_marker_preview_data()})
 
 
 @app.route("/admin/app-support-prep")
