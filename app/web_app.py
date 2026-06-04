@@ -17,23 +17,26 @@ from pathlib import Path
 from urllib.parse import urlencode
 from collections import OrderedDict
 from flask import Flask, request, redirect, url_for, session, render_template_string, send_file, flash, Response, jsonify, make_response, has_request_context
+from runtime_paths import RUNTIME_PATHS, runtime_paths_summary
 from scanner import init_db, scan_movies_folder, scan_tv_folder
 
-APP_DIR = Path(__file__).resolve().parent
-DB_PATH = APP_DIR / "library.db"
-CONFIG_PATH = APP_DIR / "config.json"
+APP_DIR = RUNTIME_PATHS.app_dir
+DB_PATH = RUNTIME_PATHS.db_path
+CONFIG_PATH = RUNTIME_PATHS.config_path
 MOVIE_ROOT_DIR = APP_DIR.parent
 WEB_ROOT_DIR = MOVIE_ROOT_DIR.parent
 CADDY_BINARY_NAME = "caddy.exe" if os.name == "nt" else "caddy"
 CADDY_EXE_PATH = WEB_ROOT_DIR / CADDY_BINARY_NAME
 CADDYFILE_PATH = WEB_ROOT_DIR / "Caddyfile"
-BACKUP_DIR = APP_DIR / "backups"
-ARTWORK_CACHE_DIR = APP_DIR / ".cache" / "artwork"
-APP_SUPPORT_DIR = Path.home() / "Library" / "Application Support" / "Movie Library"
-APP_SUPPORT_CONFIG_PATH = APP_SUPPORT_DIR / "config.json"
-APP_SUPPORT_DB_PATH = APP_SUPPORT_DIR / "library.db"
-APP_SUPPORT_CACHE_DIR = APP_SUPPORT_DIR / "cache"
-APP_SUPPORT_LOGS_DIR = APP_SUPPORT_DIR / "logs"
+BACKUP_DIR = RUNTIME_PATHS.backups_dir
+ARTWORK_CACHE_DIR = RUNTIME_PATHS.cache_dir / "artwork"
+LOGS_DIR = RUNTIME_PATHS.logs_dir
+EXPORTS_DIR = RUNTIME_PATHS.exports_dir
+APP_SUPPORT_DIR = RUNTIME_PATHS.app_support_dir
+APP_SUPPORT_CONFIG_PATH = RUNTIME_PATHS.app_support_config_path
+APP_SUPPORT_DB_PATH = RUNTIME_PATHS.app_support_db_path
+APP_SUPPORT_CACHE_DIR = RUNTIME_PATHS.app_support_cache_dir
+APP_SUPPORT_LOGS_DIR = RUNTIME_PATHS.app_support_logs_dir
 DMG_BUILD_DIR = APP_DIR / "build"
 TEST_DMG_PATH = DMG_BUILD_DIR / "Movie Library Test.dmg"
 TEST_DMG_CHECKSUM_PATH = DMG_BUILD_DIR / "Movie Library Test.sha256.txt"
@@ -41,27 +44,27 @@ TEST_DMG_MANIFEST_PATH = DMG_BUILD_DIR / "Movie Library Test DMG CONTENTS MANIFE
 TEST_DMG_INSTALL_NOTES_PATH = DMG_BUILD_DIR / "Movie Library Test DMG INSTALL NOTES.txt"
 TEST_DMG_SUMMARY_PATH = DMG_BUILD_DIR / "Movie Library Test DMG SUMMARY.txt"
 TEST_DMG_VERIFY_SUMMARY_PATH = DMG_BUILD_DIR / "Movie Library Test DMG VERIFY SUMMARY.txt"
-DMG_BUILD_LOG_PATH = APP_DIR / "logs" / "movie_library_dmg_build.log"
-DMG_VERIFY_LOG_PATH = APP_DIR / "logs" / "movie_library_dmg_verify.log"
+DMG_BUILD_LOG_PATH = LOGS_DIR / "movie_library_dmg_build.log"
+DMG_VERIFY_LOG_PATH = LOGS_DIR / "movie_library_dmg_verify.log"
 APP_SUPPORT_PREP_HELPER_PATH = APP_DIR / "Prepare Movie Library App Support.command"
-APP_SUPPORT_PREP_LOG_PATH = APP_DIR / "logs" / "movie_library_app_support_prep.log"
+APP_SUPPORT_PREP_LOG_PATH = LOGS_DIR / "movie_library_app_support_prep.log"
 APP_SUPPORT_VERIFY_HELPER_PATH = APP_DIR / "Verify Movie Library App Support.command"
-APP_SUPPORT_VERIFY_LOG_PATH = APP_DIR / "logs" / "movie_library_app_support_verify.log"
+APP_SUPPORT_VERIFY_LOG_PATH = LOGS_DIR / "movie_library_app_support_verify.log"
 MIGRATION_DRY_RUN_HELPER_PATH = APP_DIR / "Dry Run Movie Library Migration.command"
-MIGRATION_DRY_RUN_LOG_PATH = APP_DIR / "logs" / "movie_library_migration_dry_run.log"
-MIGRATION_DRY_RUN_SUMMARY_PATH = APP_DIR / "logs" / "movie_library_migration_dry_run_summary.txt"
+MIGRATION_DRY_RUN_LOG_PATH = LOGS_DIR / "movie_library_migration_dry_run.log"
+MIGRATION_DRY_RUN_SUMMARY_PATH = LOGS_DIR / "movie_library_migration_dry_run_summary.txt"
 MIGRATION_BACKUP_HELPER_PATH = APP_DIR / "Backup Movie Library Migration Data.command"
 MIGRATION_BACKUP_VERIFY_HELPER_PATH = APP_DIR / "Verify Movie Library Migration Backup.command"
 MIGRATION_STAGE_HELPER_PATH = APP_DIR / "Stage Movie Library Migration Data.command"
 MIGRATION_STAGE_VERIFY_HELPER_PATH = APP_DIR / "Verify Movie Library Migration Stage.command"
 MIGRATION_CUTOVER_READINESS_HELPER_PATH = APP_DIR / "Check Movie Library Migration Cutover.command"
 MIGRATION_CUTOVER_PLAN_HELPER_PATH = APP_DIR / "Plan Movie Library Migration Cutover.command"
-MIGRATION_BACKUP_LOG_PATH = APP_DIR / "logs" / "movie_library_migration_backup.log"
-MIGRATION_BACKUP_VERIFY_LOG_PATH = APP_DIR / "logs" / "movie_library_migration_backup_verify.log"
-MIGRATION_STAGE_LOG_PATH = APP_DIR / "logs" / "movie_library_migration_stage.log"
-MIGRATION_STAGE_VERIFY_LOG_PATH = APP_DIR / "logs" / "movie_library_migration_stage_verify.log"
-MIGRATION_CUTOVER_READINESS_LOG_PATH = APP_DIR / "logs" / "movie_library_migration_cutover_readiness.log"
-MIGRATION_CUTOVER_PLAN_LOG_PATH = APP_DIR / "logs" / "movie_library_migration_cutover_plan.log"
+MIGRATION_BACKUP_LOG_PATH = LOGS_DIR / "movie_library_migration_backup.log"
+MIGRATION_BACKUP_VERIFY_LOG_PATH = LOGS_DIR / "movie_library_migration_backup_verify.log"
+MIGRATION_STAGE_LOG_PATH = LOGS_DIR / "movie_library_migration_stage.log"
+MIGRATION_STAGE_VERIFY_LOG_PATH = LOGS_DIR / "movie_library_migration_stage_verify.log"
+MIGRATION_CUTOVER_READINESS_LOG_PATH = LOGS_DIR / "movie_library_migration_cutover_readiness.log"
+MIGRATION_CUTOVER_PLAN_LOG_PATH = LOGS_DIR / "movie_library_migration_cutover_plan.log"
 MIGRATION_BACKUP_SUMMARY_PATH = APP_SUPPORT_DIR / "migration-backups" / "Movie Library Migration BACKUP SUMMARY.txt"
 MIGRATION_BACKUP_VERIFY_SUMMARY_PATH = APP_SUPPORT_DIR / "migration-backups" / "Movie Library Migration BACKUP VERIFY SUMMARY.txt"
 MIGRATION_STAGE_DIR = APP_SUPPORT_DIR / "migration-staging"
@@ -73,7 +76,7 @@ MIGRATION_CUTOVER_PLAN_SUMMARY_PATH = MIGRATION_STAGE_DIR / "Movie Library Migra
 APP_SUPPORT_PREP_SUMMARY_PATH = APP_SUPPORT_DIR / "Movie Library App Support PREP SUMMARY.txt"
 APP_SUPPORT_VERIFY_SUMMARY_PATH = APP_SUPPORT_DIR / "Movie Library App Support VERIFY SUMMARY.txt"
 APP_SUPPORT_README_PATH = APP_SUPPORT_DIR / "README - Movie Library Data Folder.txt"
-UI_VERSION = "UI v28.5.25 - migration cutover plan helper"
+UI_VERSION = "UI v28.5.26 - runtime data-location foundation"
 
 
 def caddy_command_path():
@@ -1439,6 +1442,7 @@ def get_about_info():
 
     return {
         "version": UI_VERSION,
+        "runtime_paths": get_runtime_path_status(),
         "app_path": str(APP_DIR),
         "movie_root": str(MOVIE_ROOT_DIR),
         "web_root": str(WEB_ROOT_DIR),
@@ -1452,6 +1456,21 @@ def get_about_info():
         "tv_show_count": tv_show_count,
         "episode_count": episode_count,
         "port": cfg.get("web", {}).get("port", 8765),
+    }
+
+
+def get_runtime_path_status():
+    summary = runtime_paths_summary(RUNTIME_PATHS)
+    app_support_active = bool(summary["is_app_support"])
+    return {
+        **summary,
+        "label": "App Support data mode" if app_support_active else "Legacy app-local data mode",
+        "class": "good" if app_support_active else "warn",
+        "message": (
+            "Runtime data is being read from Application Support."
+            if app_support_active
+            else "Runtime data still uses the app folder. Application Support is available only for a later explicit switch."
+        ),
     }
 
 
@@ -1710,8 +1729,10 @@ def get_mac_app_readiness_data():
     port = int(web_cfg.get("port") or 8765)
     movie_sources = get_movie_sources()
     tv_sources = get_tv_sources()
+    runtime_status = get_runtime_path_status()
     current_items = [
         {"label": "Current app folder", "path": str(APP_DIR), "status": "In use now"},
+        {"label": "Runtime data mode", "path": runtime_status["data_dir"], "status": runtime_status["label"]},
         {"label": "Current config", "path": str(CONFIG_PATH), "status": "Present" if CONFIG_PATH.exists() else "Missing"},
         {"label": "Current database", "path": str(DB_PATH), "status": format_file_size(DB_PATH.stat().st_size) if DB_PATH.exists() else "Missing"},
         {"label": "Current artwork cache", "path": str(ARTWORK_CACHE_DIR), "status": "Present" if ARTWORK_CACHE_DIR.exists() else "Not created yet"},
@@ -1745,6 +1766,7 @@ def get_mac_app_readiness_data():
         "caddyfile_path": str(CADDYFILE_PATH),
         "app_support_dir": str(APP_SUPPORT_DIR),
         "app_support_exists": APP_SUPPORT_DIR.exists(),
+        "runtime_paths": runtime_status,
     }
 
 
@@ -1753,6 +1775,7 @@ def get_first_run_setup_preview_data():
     """Return a read-only first-run setup preview for the future packaged Mac app."""
     web_cfg = cfg.get("web", {}) if isinstance(cfg, dict) else {}
     port = int(web_cfg.get("port") or 8765)
+    runtime_status = get_runtime_path_status()
     movie_sources = get_movie_sources()
     tv_sources = get_tv_sources()
     admin_username = str(web_cfg.get("username") or "Jay1")
@@ -1769,6 +1792,7 @@ def get_first_run_setup_preview_data():
     ]
     current_config = [
         {"label": "Current app folder", "value": str(APP_DIR)},
+        {"label": "Runtime data mode", "value": f"{runtime_status['label']} - {runtime_status['data_dir']}"},
         {"label": "Current config", "value": str(CONFIG_PATH)},
         {"label": "Current database", "value": str(DB_PATH)},
         {"label": "Future data folder", "value": str(APP_SUPPORT_DIR)},
@@ -1794,12 +1818,14 @@ def get_first_run_setup_preview_data():
         "next_build_plan": next_build_plan,
         "app_support_exists": APP_SUPPORT_DIR.exists(),
         "app_support_dir": str(APP_SUPPORT_DIR),
+        "runtime_paths": runtime_status,
     }
 
 def get_migration_safety_preview_data():
     """Return a read-only migration safety plan for the future packaged Mac app."""
     web_cfg = cfg.get("web", {}) if isinstance(cfg, dict) else {}
     port = int(web_cfg.get("port") or 8765)
+    runtime_status = get_runtime_path_status()
     current_db_size = format_file_size(DB_PATH.stat().st_size) if DB_PATH.exists() else "Missing"
     current_config_size = format_file_size(CONFIG_PATH.stat().st_size) if CONFIG_PATH.exists() else "Missing"
     app_support_exists = APP_SUPPORT_DIR.exists()
@@ -1812,6 +1838,7 @@ def get_migration_safety_preview_data():
         {"title": "6. Verify then scan", "text": "Open the library, verify counts, verify admin/viewer login, then run Check All Libraries if a fresh rebuild is wanted."},
     ]
     path_pairs = [
+        {"label": "Runtime data mode", "source": runtime_status["mode"], "target": runtime_status["data_dir"], "status": runtime_status["label"]},
         {"label": "Current config source", "source": str(CONFIG_PATH), "target": str(APP_SUPPORT_CONFIG_PATH), "status": current_config_size},
         {"label": "Current database source", "source": str(DB_PATH), "target": str(APP_SUPPORT_DB_PATH), "status": current_db_size},
         {"label": "Current artwork cache", "source": str(ARTWORK_CACHE_DIR), "target": str(APP_SUPPORT_CACHE_DIR), "status": "Present" if ARTWORK_CACHE_DIR.exists() else "Not created yet"},
@@ -1836,6 +1863,7 @@ def get_migration_safety_preview_data():
         "migration_steps": migration_steps,
         "guardrails": guardrails,
         "caddyfile_path": str(CADDYFILE_PATH),
+        "runtime_paths": runtime_status,
     }
 
 
@@ -1872,11 +1900,12 @@ def _migration_dry_run_item(label, source, target, kind="file", required=True, n
 
 def get_migration_dry_run_preview_data():
     """Return a read-only dry-run view for the future move to Application Support."""
+    runtime_status = get_runtime_path_status()
     source_items = [
         _migration_dry_run_item("config.json", CONFIG_PATH, APP_SUPPORT_CONFIG_PATH, "file", True, "Would be copied later only after explicit confirmation."),
         _migration_dry_run_item("library.db", DB_PATH, APP_SUPPORT_DB_PATH, "file", True, "Would be copied later with a timestamped safety copy first."),
         _migration_dry_run_item("artwork cache", ARTWORK_CACHE_DIR, APP_SUPPORT_CACHE_DIR / "artwork", "dir", False, "Optional cache; it can also be rebuilt by scans if not migrated."),
-        _migration_dry_run_item("logs", APP_DIR / "logs", APP_SUPPORT_LOGS_DIR, "dir", False, "Optional runtime logs; not required for the app to work."),
+        _migration_dry_run_item("logs", LOGS_DIR, APP_SUPPORT_LOGS_DIR, "dir", False, "Optional runtime logs; not required for the app to work."),
     ]
     target_items = [
         {"label": "Application Support root", **_app_support_path_status(APP_SUPPORT_DIR)},
@@ -1895,6 +1924,7 @@ def get_migration_dry_run_preview_data():
         "helper_path": str(MIGRATION_DRY_RUN_HELPER_PATH),
         "summary_path": str(MIGRATION_DRY_RUN_SUMMARY_PATH),
         "log_path": str(MIGRATION_DRY_RUN_LOG_PATH),
+        "runtime_paths": runtime_status,
         "overall_status": "Dry-run ready" if overall_ok else "Needs prep before migration",
         "overall_class": "good" if overall_ok else "warn",
         "source_items": source_items,
@@ -2099,7 +2129,9 @@ def get_dmg_packaging_preview_data():
     """Return a read-only packaging plan for a future DMG-installed Mac app."""
     web_cfg = cfg.get("web", {}) if isinstance(cfg, dict) else {}
     port = int(web_cfg.get("port") or 8765)
+    runtime_status = get_runtime_path_status()
     package_items = [
+        {"title": "Runtime path mode", "status": runtime_status["label"], "text": runtime_status["message"]},
         {"title": "Movie Library.app", "status": "Program bundle", "text": "The final app bundle should contain the control UI, Flask app code, templates/static assets, scanner code, and a packaged Python runtime or launcher."},
         {"title": "Application Support data", "status": str(APP_SUPPORT_DIR), "text": "Changing files stay outside the .app: config.json, library.db, cache, logs, exports, and migration backups."},
         {"title": "DMG installer", "status": "Future", "text": "The DMG should present a simple drag-to-Applications install flow and should not contain your live database or media files."},
@@ -2126,6 +2158,7 @@ def get_dmg_packaging_preview_data():
     ]
     checks = [
         {"label": "Current app folder", "value": str(APP_DIR)},
+        {"label": "Runtime data mode", "value": f"{runtime_status['mode']} -> {runtime_status['data_dir']}"},
         {"label": "Future app", "value": "/Applications/Movie Library.app"},
         {"label": "Future data folder", "value": str(APP_SUPPORT_DIR)},
         {"label": "Local URL", "value": f"http://127.0.0.1:{port}"},
@@ -2139,6 +2172,7 @@ def get_dmg_packaging_preview_data():
         "dmg_sequence": dmg_sequence,
         "package_guardrails": package_guardrails,
         "checks": checks,
+        "runtime_paths": runtime_status,
     }
 
 
@@ -2326,7 +2360,9 @@ def get_migration_cutover_plan_preview_data():
 
 def get_package_manifest_preview_data():
     """Return a read-only manifest for what a future packaged Mac app should include/exclude."""
+    runtime_status = get_runtime_path_status()
     include_items = [
+        {"label": "runtime_paths.py", "reason": "Central runtime path resolver that keeps legacy app-local data active until an explicit App Support switch is enabled."},
         {"label": "web_app.py", "reason": "Flask routes, admin console, viewer UI, and admin API."},
         {"label": "scanner.py", "reason": "Movie/TV library scanner and database update logic."},
         {"label": "mac_control_app.py", "reason": "Native macOS control window used to manage the local server."},
@@ -2365,6 +2401,7 @@ def get_package_manifest_preview_data():
     ]
     readiness_checks = [
         {"label": "Program source folder", "value": str(APP_DIR), "exists": APP_DIR.exists()},
+        {"label": "Runtime data mode", "value": f"{runtime_status['label']} - {runtime_status['data_dir']}", "exists": True},
         {"label": "Current config", "value": str(CONFIG_PATH), "exists": CONFIG_PATH.exists()},
         {"label": "Current database", "value": str(DB_PATH), "exists": DB_PATH.exists()},
         {"label": "Future data folder", "value": str(APP_SUPPORT_DIR), "exists": APP_SUPPORT_DIR.exists()},
@@ -2390,6 +2427,7 @@ def get_package_manifest_preview_data():
         "external_items": external_items,
         "exclude_items": exclude_items,
         "readiness_checks": readiness_checks,
+        "runtime_paths": runtime_status,
     }
 
 
@@ -2479,6 +2517,7 @@ def _app_support_verify_item(label, path, expected="dir", required=True, message
 
 def get_app_support_status_preview_data():
     """Return read-only verification status for the future Application Support layout."""
+    runtime_status = get_runtime_path_status()
     required_items = [
         _app_support_verify_item("Application Support root", APP_SUPPORT_DIR, "dir", True, "Main future data folder."),
         _app_support_verify_item("cache/", APP_SUPPORT_CACHE_DIR, "dir", True, "Root cache folder."),
@@ -2505,9 +2544,10 @@ def get_app_support_status_preview_data():
     ]
     required_ok = all(item["exists"] for item in required_items)
     current_live_items = [
-        {"label": "Current config", "path": str(CONFIG_PATH), "exists": CONFIG_PATH.exists(), "size": format_file_size(CONFIG_PATH.stat().st_size) if CONFIG_PATH.exists() else "—", "message": "Still in the current development app folder until migration."},
-        {"label": "Current database", "path": str(DB_PATH), "exists": DB_PATH.exists(), "size": format_file_size(DB_PATH.stat().st_size) if DB_PATH.exists() else "—", "message": "Still in the current development app folder until migration."},
-        {"label": "Current artwork cache", "path": str(ARTWORK_CACHE_DIR), "exists": ARTWORK_CACHE_DIR.exists(), "size": "folder" if ARTWORK_CACHE_DIR.exists() else "—", "message": "Still in the current development app folder until migration."},
+        {"label": "Runtime data mode", "path": runtime_status["data_dir"], "exists": True, "size": runtime_status["mode"], "message": runtime_status["message"]},
+        {"label": "Current config", "path": str(CONFIG_PATH), "exists": CONFIG_PATH.exists(), "size": format_file_size(CONFIG_PATH.stat().st_size) if CONFIG_PATH.exists() else "—", "message": "Resolved through the runtime path helper."},
+        {"label": "Current database", "path": str(DB_PATH), "exists": DB_PATH.exists(), "size": format_file_size(DB_PATH.stat().st_size) if DB_PATH.exists() else "—", "message": "Resolved through the runtime path helper."},
+        {"label": "Current artwork cache", "path": str(ARTWORK_CACHE_DIR), "exists": ARTWORK_CACHE_DIR.exists(), "size": "folder" if ARTWORK_CACHE_DIR.exists() else "—", "message": "Resolved through the runtime path helper."},
     ]
     return {
         "about": get_about_info(),
@@ -2522,6 +2562,7 @@ def get_app_support_status_preview_data():
         "optional_items": optional_items,
         "helper_items": helper_items,
         "current_live_items": current_live_items,
+        "runtime_paths": runtime_status,
         "prep_summary": _read_text_tail(APP_SUPPORT_PREP_SUMMARY_PATH, 80),
         "verify_summary": _read_text_tail(APP_SUPPORT_VERIFY_SUMMARY_PATH, 100),
         "prep_log_tail": _read_text_tail(APP_SUPPORT_PREP_LOG_PATH, 60),
@@ -2701,9 +2742,11 @@ def get_package_preflight_preview_data():
     """Return read-only checks for the future DMG/.app packaging stage."""
     web_cfg = cfg.get("web", {}) if isinstance(cfg, dict) else {}
     port = int(web_cfg.get("port") or 8765)
+    runtime_status = get_runtime_path_status()
     required_program_files = [
         {"label": "Flask server", "filename": "web_app.py", **_package_status(APP_DIR / "web_app.py")},
         {"label": "Scanner", "filename": "scanner.py", **_package_status(APP_DIR / "scanner.py")},
+        {"label": "Runtime path helper", "filename": "runtime_paths.py", **_package_status(APP_DIR / "runtime_paths.py")},
         {"label": "macOS control app", "filename": "mac_control_app.py", **_package_status(APP_DIR / "mac_control_app.py")},
         {"label": "Python requirements", "filename": "requirements.txt", **_package_status(APP_DIR / "requirements.txt")},
         {"label": "Server runner", "filename": "run_movie_library_server.command", **_package_status(APP_DIR / "run_movie_library_server.command")},
@@ -2747,10 +2790,11 @@ def get_package_preflight_preview_data():
         _launcher_permission_status(APP_DIR / "Movie Library Control.app" / "Contents" / "MacOS" / "MovieLibraryControl", "Movie Library Control.app executable"),
     ]
     data_files = [
+        {"label": "Runtime data mode", "current": runtime_status["mode"], "future": runtime_status["data_dir"], "exists": True, "message": runtime_status["message"]},
         {"label": "Current config", "current": str(CONFIG_PATH), "future": str(APP_SUPPORT_CONFIG_PATH), "exists": CONFIG_PATH.exists(), "message": "Should be copied/migrated to Application Support, not bundled as a fixed app resource."},
         {"label": "Current database", "current": str(DB_PATH), "future": str(APP_SUPPORT_DB_PATH), "exists": DB_PATH.exists(), "message": "Should remain user data so app updates never overwrite the scanned library."},
         {"label": "Current artwork cache", "current": str(ARTWORK_CACHE_DIR), "future": str(APP_SUPPORT_CACHE_DIR), "exists": ARTWORK_CACHE_DIR.exists(), "message": "Should be rebuildable cache outside the .app bundle."},
-        {"label": "Future logs folder", "current": str(APP_DIR), "future": str(APP_SUPPORT_LOGS_DIR), "exists": APP_SUPPORT_LOGS_DIR.exists(), "message": "Runtime logs should be writable outside /Applications."},
+        {"label": "Future logs folder", "current": str(LOGS_DIR), "future": str(APP_SUPPORT_LOGS_DIR), "exists": APP_SUPPORT_LOGS_DIR.exists(), "message": "Runtime logs should be writable outside /Applications."},
         {"label": "Future data-folder skeleton", "current": str(APP_SUPPORT_PREP_HELPER_PATH), "future": str(APP_SUPPORT_DIR), "exists": APP_SUPPORT_DIR.exists(), "message": "Can be created with Prepare Movie Library App Support.command before the later migration wizard."},
         {"label": "App Support verification summary", "current": str(APP_SUPPORT_VERIFY_HELPER_PATH), "future": str(APP_SUPPORT_VERIFY_SUMMARY_PATH), "exists": APP_SUPPORT_VERIFY_SUMMARY_PATH.exists(), "message": "Created by Verify Movie Library App Support.command after folder prep."},
         {"label": "Migration dry-run summary", "current": str(MIGRATION_DRY_RUN_HELPER_PATH), "future": str(MIGRATION_DRY_RUN_SUMMARY_PATH), "exists": MIGRATION_DRY_RUN_SUMMARY_PATH.exists(), "message": "Created by the dry-run helper; it previews what would be copied but does not migrate anything."},
@@ -2805,6 +2849,7 @@ def get_package_preflight_preview_data():
         "port": port,
         "future_app": "/Applications/Movie Library.app",
         "future_data": str(APP_SUPPORT_DIR),
+        "runtime_paths": runtime_status,
         "required_program_files": required_program_files,
         "permission_checks": permission_checks,
         "data_files": data_files,
