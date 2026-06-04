@@ -1,7 +1,7 @@
-Movie Library App - v28.5.27
-UI v28.5.27 - runtime path visibility polish
+Movie Library App - v28.5.28
+UI v28.5.28 - runtime paths admin page
 
-Incremental build after v28.5.26. Adds clearer runtime path mode visibility in the admin status API and macOS control app status panel while preserving legacy app-local paths by default.
+Incremental build after v28.5.27. Adds a read-only Runtime Paths admin page and API endpoint so the active data locations can be inspected before any migration. Legacy app-local mode remains the safe default.
 
 Safety notes:
 - Does not switch live data paths by default.
