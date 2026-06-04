@@ -1,7 +1,7 @@
-Movie Library App - v28.5.28
-UI v28.5.28 - runtime paths admin page
+Movie Library App - v28.5.29
+UI v28.5.29 - app-support switch preview
 
-Incremental build after v28.5.27. Adds a read-only Runtime Paths admin page and API endpoint so the active data locations can be inspected before any migration. Legacy app-local mode remains the safe default.
+Incremental build after v28.5.28. Adds a read-only App Support switch preview page and API endpoint showing the later marker/config opt-in plan, future paths, and safety checklist. It does not switch runtime paths or create marker/config changes.
 
 Safety notes:
 - Does not switch live data paths by default.
