@@ -76,7 +76,7 @@ MIGRATION_CUTOVER_PLAN_SUMMARY_PATH = MIGRATION_STAGE_DIR / "Movie Library Migra
 APP_SUPPORT_PREP_SUMMARY_PATH = APP_SUPPORT_DIR / "Movie Library App Support PREP SUMMARY.txt"
 APP_SUPPORT_VERIFY_SUMMARY_PATH = APP_SUPPORT_DIR / "Movie Library App Support VERIFY SUMMARY.txt"
 APP_SUPPORT_README_PATH = APP_SUPPORT_DIR / "README - Movie Library Data Folder.txt"
-UI_VERSION = "UI v28.5.27 - runtime path visibility polish"
+UI_VERSION = "UI v28.5.28 - runtime paths admin page"
 
 
 def caddy_command_path():
@@ -1474,6 +1474,42 @@ def get_runtime_path_status():
     }
 
 
+def _runtime_path_admin_item(label, path, kind):
+    path = Path(path)
+    return {
+        "label": label,
+        "kind": kind,
+        "path": str(path),
+        "exists": path.exists(),
+        "status": "Present" if path.exists() else "Not found",
+        "class": "good" if path.exists() else "warn",
+    }
+
+
+def get_runtime_paths_admin_data():
+    """Return a read-only view of resolved runtime data paths."""
+    runtime_status = get_runtime_path_status()
+    path_items = [
+        _runtime_path_admin_item("App folder", runtime_status["app_dir"], "dir"),
+        _runtime_path_admin_item("Data folder", runtime_status["data_dir"], "dir"),
+        _runtime_path_admin_item("Config file", runtime_status["config_path"], "file"),
+        _runtime_path_admin_item("Database file", runtime_status["db_path"], "file"),
+        _runtime_path_admin_item("Cache folder", runtime_status["cache_dir"], "dir"),
+        _runtime_path_admin_item("Logs folder", runtime_status["logs_dir"], "dir"),
+        _runtime_path_admin_item("Exports folder", runtime_status["exports_dir"], "dir"),
+        _runtime_path_admin_item("Backups folder", runtime_status["backups_dir"], "dir"),
+    ]
+    return {
+        "about": get_about_info(),
+        "runtime": runtime_status,
+        "mode": runtime_status["mode"],
+        "app_support_active": runtime_status["is_app_support"],
+        "safe_default_note": "legacy-app-local is the active safe default unless an explicit app-support marker/config flag is present.",
+        "warning": "WARNING: app-support runtime path mode is active." if runtime_status["is_app_support"] else "",
+        "path_items": path_items,
+    }
+
+
 def _dir_stats(path):
     """Return a lightweight count/size summary for a directory."""
     root = Path(path)
@@ -2833,6 +2869,7 @@ def get_package_preflight_preview_data():
         "/api/admin/login",
         "/api/admin/package-manifest-preview",
         "/api/admin/package-preflight-preview",
+        "/api/admin/runtime-paths",
         "/api/admin/test-dmg-status-preview",
         "/api/admin/app-support-prep-preview",
         "/api/admin/app-support-status-preview",
@@ -4221,7 +4258,7 @@ window.addEventListener('load', refreshScanStatus);
     <div class=admin-section-card><h3>Scans</h3><p>Run library checks, review scan history, scheduled refresh, and missing item cleanup in one place.</p><div class=toolbar><a class="btn primary" href="/admin/scans">Open Scans</a></div></div>
     <div class=admin-section-card><h3>Server</h3><p>Check local/remote URLs, Caddy status, and use the only visible restart controls.</p><div class=toolbar><a class="btn primary" href="/server-control">Open Server</a></div></div>
     <div class=admin-section-card><h3>Users</h3><p>Manage admin login and viewer accounts, including extra viewers.</p><div class=toolbar><a class="btn primary" href="/admin/users">Manage Users</a></div></div>
-    <div class=admin-section-card><h3>Settings</h3><p>Keep advanced configuration, version/about details, and Mac app readiness separate from daily admin actions.</p><div class=toolbar><a class="btn primary" href="/settings">Open Settings</a><a class=btn href="/admin/mac-app-readiness">Mac app readiness</a><a class=btn href="/admin/first-run-setup">First-run preview</a><a class=btn href="/admin/migration-safety">Migration safety</a><a class=btn href="/admin/migration-dry-run">Migration dry run</a><a class=btn href="/admin/migration-backup">Migration backup</a><a class=btn href="/admin/migration-backup-verify">Verify backup</a><a class=btn href="/admin/migration-stage">Migration stage</a><a class=btn href="/admin/migration-stage-verify">Verify stage</a><a class=btn href="/admin/migration-cutover-readiness">Cutover readiness</a><a class=btn href="/admin/migration-cutover-plan">Cutover plan</a><a class=btn href="/admin/dmg-packaging">DMG packaging</a><a class=btn href="/admin/package-manifest">Package manifest</a><a class=btn href="/admin/package-preflight">Package preflight</a><a class=btn href="/admin/test-dmg-status">Test DMG status</a><a class=btn href="/admin/app-support-prep">App Support prep</a><a class=btn href="/admin/app-support-status">App Support status</a></div></div>
+    <div class=admin-section-card><h3>Settings</h3><p>Keep advanced configuration, version/about details, and Mac app readiness separate from daily admin actions.</p><div class=toolbar><a class="btn primary" href="/settings">Open Settings</a><a class=btn href="/admin/runtime-paths">Runtime paths</a><a class=btn href="/admin/mac-app-readiness">Mac app readiness</a><a class=btn href="/admin/first-run-setup">First-run preview</a><a class=btn href="/admin/migration-safety">Migration safety</a><a class=btn href="/admin/migration-dry-run">Migration dry run</a><a class=btn href="/admin/migration-backup">Migration backup</a><a class=btn href="/admin/migration-backup-verify">Verify backup</a><a class=btn href="/admin/migration-stage">Migration stage</a><a class=btn href="/admin/migration-stage-verify">Verify stage</a><a class=btn href="/admin/migration-cutover-readiness">Cutover readiness</a><a class=btn href="/admin/migration-cutover-plan">Cutover plan</a><a class=btn href="/admin/dmg-packaging">DMG packaging</a><a class=btn href="/admin/package-manifest">Package manifest</a><a class=btn href="/admin/package-preflight">Package preflight</a><a class=btn href="/admin/test-dmg-status">Test DMG status</a><a class=btn href="/admin/app-support-prep">App Support prep</a><a class=btn href="/admin/app-support-status">App Support status</a></div></div>
   </div>
 </section>
 <div class=dashboard-main>
@@ -6575,7 +6612,7 @@ PACKAGE_PREFLIGHT_PREVIEW_HTML = """
   <span class=preflight-pill>Read-only preflight</span>
   <h1>Package Preflight Preview</h1>
   <p class=muted>This page checks the pieces needed before moving from the test .app bundle stage to a cleaner packaged Mac app and later DMG. It does not build, copy, move, delete, or edit anything. The separate test DMG helper is local-only and creates packaging output in a build folder when you choose to run it on the Mac.</p>
-  <div class=settings-hero-actions><a class="btn primary" href="/admin/package-manifest">Package manifest</a><a class=btn href="/admin/dmg-packaging">DMG packaging</a><a class=btn href="/admin/migration-safety">Migration safety</a><a class=btn href="/admin/first-run-setup">First-run preview</a><a class=btn href="/settings">Settings</a></div>
+  <div class=settings-hero-actions><a class="btn primary" href="/admin/package-manifest">Package manifest</a><a class=btn href="/admin/runtime-paths">Runtime paths</a><a class=btn href="/admin/dmg-packaging">DMG packaging</a><a class=btn href="/admin/migration-safety">Migration safety</a><a class=btn href="/admin/first-run-setup">First-run preview</a><a class=btn href="/settings">Settings</a></div>
 </section>
 <section class="panel settings-card" style="margin-top:14px">
   <h2>Target layout</h2>
@@ -6659,6 +6696,38 @@ TEST_DMG_STATUS_PREVIEW_HTML = """
 
 
 
+RUNTIME_PATHS_ADMIN_HTML = """
+<!doctype html><html><head><meta name=viewport content="width=device-width, initial-scale=1"><title>Runtime Paths</title>"""+BASE_STYLE+"""
+<style>
+.runtime-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}.runtime-card{padding:14px;border-radius:16px;border:1px solid rgba(148,163,184,.16);background:rgba(2,6,23,.28)}.runtime-card h3{margin:0 0 7px}.runtime-path{font-size:12px;color:var(--muted);word-break:break-all}.status-good{color:#bbf7d0;font-weight:800}.status-warn{color:#fde68a;font-weight:800}.safe-note{padding:12px;border-radius:16px;border:1px solid rgba(52,211,153,.22);background:rgba(16,185,129,.10);color:#d1fae5;line-height:1.45}.warning-note{padding:12px;border-radius:16px;border:1px solid rgba(245,158,11,.28);background:rgba(245,158,11,.09);color:#fde68a;line-height:1.45}.runtime-kv{display:grid;gap:8px;margin-top:12px}.runtime-kv div{display:grid;grid-template-columns:170px minmax(0,1fr);gap:10px;padding:10px;border-radius:14px;background:rgba(2,6,23,.26);border:1px solid rgba(148,163,184,.12)}.runtime-kv b{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.06em}.runtime-kv span{word-break:break-all}@media(max-width:750px){.runtime-kv div{grid-template-columns:1fr}.settings-hero-actions{display:grid;width:100%}}
+</style></head><body>"""+NAV_HTML+"""
+<main class=shell style="max-width:1100px">
+"""+ADMIN_TABS_HTML+"""
+<section class="panel settings-hero">
+  <div><h1>Runtime Paths</h1><p class=muted style="margin:0">Read-only view of the resolved data paths used by the running app.</p></div>
+  <div class=settings-hero-actions><a class=btn href="/admin/app-support-status">App Support status</a><a class=btn href="/admin/package-preflight">Package preflight</a><a class=btn href="/settings">Settings</a></div>
+</section>
+<section class="panel settings-card">
+  <h2>Runtime mode</h2>
+  {% if data.warning %}<div class=warning-note>{{ data.warning }}</div>{% else %}<div class=safe-note>{{ data.safe_default_note }}</div>{% endif %}
+  <div class=runtime-kv>
+    <div><b>Mode</b><span>{{ data.runtime.mode }}</span></div>
+    <div><b>Data folder</b><span>{{ data.runtime.data_dir }}</span></div>
+    <div><b>Marker file</b><span>{{ data.runtime.marker_path }}</span></div>
+  </div>
+</section>
+<section class="panel settings-card" style="margin-top:14px">
+  <h2>Resolved paths</h2>
+  <div class=runtime-grid>{% for item in data.path_items %}<article class=runtime-card><h3>{{ item.label }}</h3><p class="status-{{ item.class }}">{{ item.status }} · {{ item.kind }}</p><p class=runtime-path>{{ item.path }}</p></article>{% endfor %}</div>
+</section>
+<section class="panel settings-card" style="margin-top:14px">
+  <h2>Safety</h2>
+  <div class=safe-note>This page and its API only read path metadata. They do not switch runtime paths, create folders, copy data, move data, delete data, migrate the database, edit Caddy, or change scanner logic.</div>
+</section>
+</main></body></html>
+"""
+
+
 APP_SUPPORT_STATUS_PREVIEW_HTML = """
 <!doctype html><html><head><meta name=viewport content="width=device-width, initial-scale=1"><title>Application Support Status</title>"""+BASE_STYLE+"""
 <style>
@@ -6668,7 +6737,7 @@ APP_SUPPORT_STATUS_PREVIEW_HTML = """
 """+ADMIN_TABS_HTML+"""
 <section class="panel settings-hero">
   <div><h1>Application Support Status</h1><p class=muted style="margin:0">Read-only verification dashboard for the future macOS data folder skeleton.</p></div>
-  <div class=settings-hero-actions><a class="btn primary" href="/admin/app-support-prep">App Support prep</a><a class=btn href="/admin/package-preflight">Package preflight</a><a class=btn href="/admin/migration-safety">Migration safety</a><a class=btn href="/admin/migration-dry-run">Migration dry run</a><a class=btn href="/admin/migration-backup">Migration backup</a><a class=btn href="/admin/migration-backup-verify">Verify backup</a><a class=btn href="/admin/migration-stage">Migration stage</a><a class=btn href="/admin/migration-stage-verify">Verify stage</a><a class=btn href="/admin/migration-cutover-readiness">Cutover readiness</a><a class=btn href="/settings">Settings</a></div>
+  <div class=settings-hero-actions><a class="btn primary" href="/admin/app-support-prep">App Support prep</a><a class=btn href="/admin/runtime-paths">Runtime paths</a><a class=btn href="/admin/package-preflight">Package preflight</a><a class=btn href="/admin/migration-safety">Migration safety</a><a class=btn href="/admin/migration-dry-run">Migration dry run</a><a class=btn href="/admin/migration-backup">Migration backup</a><a class=btn href="/admin/migration-backup-verify">Verify backup</a><a class=btn href="/admin/migration-stage">Migration stage</a><a class=btn href="/admin/migration-stage-verify">Verify stage</a><a class=btn href="/admin/migration-cutover-readiness">Cutover readiness</a><a class=btn href="/settings">Settings</a></div>
 </section>
 <section class="panel settings-card">
   <h2>Overall readiness</h2>
@@ -6974,6 +7043,20 @@ def api_admin_test_dmg_status_preview():
     if not require_admin():
         return jsonify({"ok": False, "error": "admin_required"}), 403
     return jsonify({"ok": True, "data": get_test_dmg_status_preview_data()})
+
+
+@app.route("/admin/runtime-paths")
+def runtime_paths_admin():
+    if not require_admin():
+        return redirect(url_for("login") if not require_login() else url_for("index"))
+    return render_template_string(RUNTIME_PATHS_ADMIN_HTML, active="settings", admin_section="settings", data=get_runtime_paths_admin_data())
+
+
+@app.route("/api/admin/runtime-paths")
+def api_admin_runtime_paths():
+    if not require_admin():
+        return jsonify({"ok": False, "error": "admin_required"}), 403
+    return jsonify({"ok": True, "data": get_runtime_paths_admin_data()})
 
 
 @app.route("/admin/app-support-prep")
