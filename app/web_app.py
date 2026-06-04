@@ -76,7 +76,7 @@ MIGRATION_CUTOVER_PLAN_SUMMARY_PATH = MIGRATION_STAGE_DIR / "Movie Library Migra
 APP_SUPPORT_PREP_SUMMARY_PATH = APP_SUPPORT_DIR / "Movie Library App Support PREP SUMMARY.txt"
 APP_SUPPORT_VERIFY_SUMMARY_PATH = APP_SUPPORT_DIR / "Movie Library App Support VERIFY SUMMARY.txt"
 APP_SUPPORT_README_PATH = APP_SUPPORT_DIR / "README - Movie Library Data Folder.txt"
-UI_VERSION = "UI v28.5.28 - runtime paths admin page"
+UI_VERSION = "UI v28.5.29 - app-support switch preview"
 
 
 def caddy_command_path():
@@ -1510,6 +1510,48 @@ def get_runtime_paths_admin_data():
     }
 
 
+def get_app_support_switch_preview_data():
+    """Return a read-only plan for a later app-support runtime mode switch."""
+    runtime_status = get_runtime_path_status()
+    current_paths = [
+        {"label": "Runtime mode", "path": runtime_status["mode"]},
+        {"label": "Config", "path": runtime_status["config_path"]},
+        {"label": "Database", "path": runtime_status["db_path"]},
+        {"label": "Cache", "path": runtime_status["cache_dir"]},
+        {"label": "Logs", "path": runtime_status["logs_dir"]},
+    ]
+    future_paths = [
+        {"label": "Config", "path": str(APP_SUPPORT_CONFIG_PATH)},
+        {"label": "Database", "path": str(APP_SUPPORT_DB_PATH)},
+        {"label": "Cache", "path": str(APP_SUPPORT_CACHE_DIR)},
+        {"label": "Logs", "path": str(APP_SUPPORT_LOGS_DIR)},
+    ]
+    marker_options = [
+        {"label": "Marker file", "value": runtime_status["marker_path"]},
+        {"label": "Marker content", "value": '{"mode": "app-support"}'},
+        {"label": "Config flag option", "value": 'runtime_path_mode: "app-support"'},
+    ]
+    checklist = [
+        "Confirm the Runtime Paths page still reports legacy-app-local before starting.",
+        "Prepare and verify the Application Support folder skeleton.",
+        "Create and verify migration safety backups.",
+        "Stage config.json and library.db, then verify staged checksums.",
+        "Run cutover readiness and confirm staged data still matches current live data.",
+        "Stop the Flask server before any future live switch helper writes a marker/config flag.",
+        "After any future switch, verify admin login, viewer login, library counts, scans, cache, logs, and remote HTTPS through unchanged Caddy.",
+    ]
+    return {
+        "about": get_about_info(),
+        "runtime": runtime_status,
+        "current_paths": current_paths,
+        "future_paths": future_paths,
+        "marker_options": marker_options,
+        "checklist": checklist,
+        "warning": "This page is read-only. It does not switch runtime mode, create marker files, edit config.json, copy data, move data, delete data, migrate data, edit Caddy, or change scanner logic.",
+        "app_support_active_warning": "WARNING: app-support mode is already active." if runtime_status["is_app_support"] else "",
+    }
+
+
 def _dir_stats(path):
     """Return a lightweight count/size summary for a directory."""
     root = Path(path)
@@ -2870,6 +2912,7 @@ def get_package_preflight_preview_data():
         "/api/admin/package-manifest-preview",
         "/api/admin/package-preflight-preview",
         "/api/admin/runtime-paths",
+        "/api/admin/app-support-switch-preview",
         "/api/admin/test-dmg-status-preview",
         "/api/admin/app-support-prep-preview",
         "/api/admin/app-support-status-preview",
@@ -6497,7 +6540,7 @@ MIGRATION_CUTOVER_PLAN_PREVIEW_HTML = """
   <span class="status-{{ data.overall_class }}">{{ data.overall_status }}</span>
   <h1>Migration Cutover Plan</h1>
   <p class=muted>This creates/reads a human-readable plan for the later live-data switch to Application Support. It is still not the switch itself.</p>
-  <div class=settings-hero-actions><a class="btn primary" href="/admin/migration-cutover-readiness">Cutover readiness</a><a class=btn href="/admin/migration-stage-verify">Verify stage</a><a class=btn href="/admin/migration-backup-verify">Verify backup</a><a class=btn href="/admin/app-support-status">App Support status</a><a class=btn href="/admin/package-preflight">Package preflight</a><a class=btn href="/settings">Settings</a></div>
+  <div class=settings-hero-actions><a class="btn primary" href="/admin/migration-cutover-readiness">Cutover readiness</a><a class=btn href="/admin/app-support-switch-preview">Switch preview</a><a class=btn href="/admin/migration-stage-verify">Verify stage</a><a class=btn href="/admin/migration-backup-verify">Verify backup</a><a class=btn href="/admin/app-support-status">App Support status</a><a class=btn href="/admin/package-preflight">Package preflight</a><a class=btn href="/settings">Settings</a></div>
 </section>
 <section class="panel settings-card" style="margin-top:14px">
   <h2>Planned path split</h2>
@@ -6705,7 +6748,7 @@ RUNTIME_PATHS_ADMIN_HTML = """
 """+ADMIN_TABS_HTML+"""
 <section class="panel settings-hero">
   <div><h1>Runtime Paths</h1><p class=muted style="margin:0">Read-only view of the resolved data paths used by the running app.</p></div>
-  <div class=settings-hero-actions><a class=btn href="/admin/app-support-status">App Support status</a><a class=btn href="/admin/package-preflight">Package preflight</a><a class=btn href="/settings">Settings</a></div>
+  <div class=settings-hero-actions><a class=btn href="/admin/app-support-switch-preview">Switch preview</a><a class=btn href="/admin/app-support-status">App Support status</a><a class=btn href="/admin/package-preflight">Package preflight</a><a class=btn href="/settings">Settings</a></div>
 </section>
 <section class="panel settings-card">
   <h2>Runtime mode</h2>
@@ -6728,6 +6771,39 @@ RUNTIME_PATHS_ADMIN_HTML = """
 """
 
 
+APP_SUPPORT_SWITCH_PREVIEW_HTML = """
+<!doctype html><html><head><meta name=viewport content="width=device-width, initial-scale=1"><title>App Support Switch Preview</title>"""+BASE_STYLE+"""
+<style>
+.switch-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}.switch-card{padding:14px;border-radius:16px;border:1px solid rgba(148,163,184,.16);background:rgba(2,6,23,.28)}.switch-card h3{margin:0 0 7px}.switch-path{font-size:12px;color:var(--muted);word-break:break-all}.switch-list{display:grid;gap:8px}.switch-list li{padding:10px 12px;border-radius:14px;border:1px solid rgba(148,163,184,.14);background:rgba(2,6,23,.24)}.warning-note{padding:12px;border-radius:16px;border:1px solid rgba(245,158,11,.28);background:rgba(245,158,11,.09);color:#fde68a;line-height:1.45}.safe-note{padding:12px;border-radius:16px;border:1px solid rgba(52,211,153,.22);background:rgba(16,185,129,.10);color:#d1fae5;line-height:1.45}@media(max-width:750px){.settings-hero-actions{display:grid;width:100%}}
+</style></head><body>"""+NAV_HTML+"""
+<main class=shell style="max-width:1100px">
+"""+ADMIN_TABS_HTML+"""
+<section class="panel settings-hero">
+  <div><h1>App Support Switch Preview</h1><p class=muted style="margin:0">Read-only plan for a later explicit runtime mode switch.</p></div>
+  <div class=settings-hero-actions><a class=btn href="/admin/runtime-paths">Runtime paths</a><a class=btn href="/admin/migration-cutover-plan">Cutover plan</a><a class=btn href="/admin/app-support-status">App Support status</a></div>
+</section>
+<section class="panel settings-card">
+  <h2>Current mode</h2>
+  {% if data.app_support_active_warning %}<div class=warning-note>{{ data.app_support_active_warning }}</div>{% else %}<div class=safe-note>legacy-app-local remains the active safe default. This page does not enable app-support mode.</div>{% endif %}
+  <div class=switch-grid style="margin-top:12px">{% for item in data.current_paths %}<article class=switch-card><h3>{{ item.label }}</h3><p class=switch-path>{{ item.path }}</p></article>{% endfor %}</div>
+</section>
+<section class="panel settings-card" style="margin-top:14px">
+  <h2>Future App Support targets</h2>
+  <div class=switch-grid>{% for item in data.future_paths %}<article class=switch-card><h3>{{ item.label }}</h3><p class=switch-path>{{ item.path }}</p></article>{% endfor %}</div>
+</section>
+<section class="panel settings-card" style="margin-top:14px">
+  <h2>Future opt-in mechanism</h2>
+  <div class=switch-grid>{% for item in data.marker_options %}<article class=switch-card><h3>{{ item.label }}</h3><p class=switch-path>{{ item.value }}</p></article>{% endfor %}</div>
+</section>
+<section class="panel settings-card" style="margin-top:14px">
+  <h2>Safety checklist before switching</h2>
+  <ol class=switch-list>{% for item in data.checklist %}<li>{{ item }}</li>{% endfor %}</ol>
+  <div class=warning-note style="margin-top:12px">{{ data.warning }}</div>
+</section>
+</main></body></html>
+"""
+
+
 APP_SUPPORT_STATUS_PREVIEW_HTML = """
 <!doctype html><html><head><meta name=viewport content="width=device-width, initial-scale=1"><title>Application Support Status</title>"""+BASE_STYLE+"""
 <style>
@@ -6737,7 +6813,7 @@ APP_SUPPORT_STATUS_PREVIEW_HTML = """
 """+ADMIN_TABS_HTML+"""
 <section class="panel settings-hero">
   <div><h1>Application Support Status</h1><p class=muted style="margin:0">Read-only verification dashboard for the future macOS data folder skeleton.</p></div>
-  <div class=settings-hero-actions><a class="btn primary" href="/admin/app-support-prep">App Support prep</a><a class=btn href="/admin/runtime-paths">Runtime paths</a><a class=btn href="/admin/package-preflight">Package preflight</a><a class=btn href="/admin/migration-safety">Migration safety</a><a class=btn href="/admin/migration-dry-run">Migration dry run</a><a class=btn href="/admin/migration-backup">Migration backup</a><a class=btn href="/admin/migration-backup-verify">Verify backup</a><a class=btn href="/admin/migration-stage">Migration stage</a><a class=btn href="/admin/migration-stage-verify">Verify stage</a><a class=btn href="/admin/migration-cutover-readiness">Cutover readiness</a><a class=btn href="/settings">Settings</a></div>
+  <div class=settings-hero-actions><a class="btn primary" href="/admin/app-support-prep">App Support prep</a><a class=btn href="/admin/runtime-paths">Runtime paths</a><a class=btn href="/admin/app-support-switch-preview">Switch preview</a><a class=btn href="/admin/package-preflight">Package preflight</a><a class=btn href="/admin/migration-safety">Migration safety</a><a class=btn href="/admin/migration-dry-run">Migration dry run</a><a class=btn href="/admin/migration-backup">Migration backup</a><a class=btn href="/admin/migration-backup-verify">Verify backup</a><a class=btn href="/admin/migration-stage">Migration stage</a><a class=btn href="/admin/migration-stage-verify">Verify stage</a><a class=btn href="/admin/migration-cutover-readiness">Cutover readiness</a><a class=btn href="/settings">Settings</a></div>
 </section>
 <section class="panel settings-card">
   <h2>Overall readiness</h2>
@@ -7057,6 +7133,20 @@ def api_admin_runtime_paths():
     if not require_admin():
         return jsonify({"ok": False, "error": "admin_required"}), 403
     return jsonify({"ok": True, "data": get_runtime_paths_admin_data()})
+
+
+@app.route("/admin/app-support-switch-preview")
+def app_support_switch_preview():
+    if not require_admin():
+        return redirect(url_for("login") if not require_login() else url_for("index"))
+    return render_template_string(APP_SUPPORT_SWITCH_PREVIEW_HTML, active="settings", admin_section="settings", data=get_app_support_switch_preview_data())
+
+
+@app.route("/api/admin/app-support-switch-preview")
+def api_admin_app_support_switch_preview():
+    if not require_admin():
+        return jsonify({"ok": False, "error": "admin_required"}), 403
+    return jsonify({"ok": True, "data": get_app_support_switch_preview_data()})
 
 
 @app.route("/admin/app-support-prep")
