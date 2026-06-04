@@ -1,7 +1,7 @@
-Movie Library App - v28.5.31
-UI v28.5.31 - app-support marker preview
+Movie Library App - v28.5.32
+UI v28.5.32 - app-support dry-run and cutover prep
 
-Incremental build after v28.5.30. Adds a read-only App Support marker preview page and API endpoint for the future explicit runtime mode marker/config flag. It does not create the marker, edit config, or switch runtime paths.
+Incremental build after v28.5.31. Adds a grouped read-only App Support dry-run and cutover preparation page/API for a future manual move from legacy app-local runtime data to Application Support. It does not create folders, copy files, move files, delete files, create the marker, edit config, or switch runtime paths.
 
 Safety notes:
 - Does not switch live data paths by default.
