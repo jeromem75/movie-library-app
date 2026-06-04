@@ -1,7 +1,7 @@
-Movie Library App - v28.5.29
-UI v28.5.29 - app-support switch preview
+Movie Library App - v28.5.30
+UI v28.5.30 - app-support readiness validator
 
-Incremental build after v28.5.28. Adds a read-only App Support switch preview page and API endpoint showing the later marker/config opt-in plan, future paths, and safety checklist. It does not switch runtime paths or create marker/config changes.
+Incremental build after v28.5.29. Adds a guarded read-only App Support readiness validator page and API endpoint for manual cutover planning. It does not switch runtime paths or create marker/config changes.
 
 Safety notes:
 - Does not switch live data paths by default.
