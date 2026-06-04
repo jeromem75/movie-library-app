@@ -76,7 +76,7 @@ MIGRATION_CUTOVER_PLAN_SUMMARY_PATH = MIGRATION_STAGE_DIR / "Movie Library Migra
 APP_SUPPORT_PREP_SUMMARY_PATH = APP_SUPPORT_DIR / "Movie Library App Support PREP SUMMARY.txt"
 APP_SUPPORT_VERIFY_SUMMARY_PATH = APP_SUPPORT_DIR / "Movie Library App Support VERIFY SUMMARY.txt"
 APP_SUPPORT_README_PATH = APP_SUPPORT_DIR / "README - Movie Library Data Folder.txt"
-UI_VERSION = "UI v28.5.31 - app-support marker preview"
+UI_VERSION = "UI v28.5.32 - app-support dry-run and cutover prep"
 
 
 def caddy_command_path():
@@ -1629,6 +1629,138 @@ def get_app_support_marker_preview_data():
         ],
         "warning": "Preview only. This page does not switch runtime mode, create a marker file, edit config.json, copy data, move data, delete data, migrate data, edit Caddy, or change scanner logic.",
         "app_support_active_warning": "WARNING: app-support mode is already active." if runtime_status["is_app_support"] else "",
+    }
+
+
+def _app_support_dry_run_path_item(label, path, kind):
+    path = Path(path)
+    exists = path.exists()
+    return {
+        "label": label,
+        "kind": kind,
+        "path": str(path),
+        "exists": exists,
+        "status": "Present" if exists else "Not found",
+        "class": "good" if exists else "warn",
+    }
+
+
+def get_app_support_dry_run_data():
+    """Return grouped read-only dry-run data for a future manual App Support cutover."""
+    runtime_status = get_runtime_path_status()
+    legacy_base = RUNTIME_PATHS.app_dir
+    future_base = RUNTIME_PATHS.app_support_dir
+    legacy_config_path = legacy_base / "config.json"
+    legacy_db_path = legacy_base / "library.db"
+    legacy_cache_dir = legacy_base / ".cache"
+    legacy_logs_dir = legacy_base / "logs"
+    legacy_exports_dir = legacy_base / "exports"
+    legacy_backups_dir = legacy_base / "backups"
+    future_config_path = future_base / "config.json"
+    future_db_path = future_base / "library.db"
+    future_cache_dir = future_base / "cache"
+    future_logs_dir = future_base / "logs"
+    future_exports_dir = future_base / "exports"
+    future_backups_dir = future_base / "backups"
+
+    current_paths = [
+        _app_support_dry_run_path_item("Legacy app folder", legacy_base, "folder"),
+        _app_support_dry_run_path_item("Current config.json", legacy_config_path, "file"),
+        _app_support_dry_run_path_item("Current library.db", legacy_db_path, "file"),
+        _app_support_dry_run_path_item("Current cache folder", legacy_cache_dir, "folder"),
+        _app_support_dry_run_path_item("Current logs folder", legacy_logs_dir, "folder"),
+        _app_support_dry_run_path_item("Current exports folder", legacy_exports_dir, "folder"),
+        _app_support_dry_run_path_item("Current backups folder", legacy_backups_dir, "folder"),
+    ]
+    future_paths = [
+        _app_support_dry_run_path_item("Future Application Support base folder", future_base, "folder"),
+        _app_support_dry_run_path_item("Future config.json", future_config_path, "file"),
+        _app_support_dry_run_path_item("Future library.db", future_db_path, "file"),
+        _app_support_dry_run_path_item("Future cache folder", future_cache_dir, "folder"),
+        _app_support_dry_run_path_item("Future logs folder", future_logs_dir, "folder"),
+        _app_support_dry_run_path_item("Future exports folder", future_exports_dir, "folder"),
+        _app_support_dry_run_path_item("Future backups folder", future_backups_dir, "folder"),
+    ]
+    future_folder_items = [
+        item for item in future_paths
+        if item["label"] in {
+            "Future Application Support base folder",
+            "Future cache folder",
+            "Future logs folder",
+            "Future exports folder",
+            "Future backups folder",
+        }
+    ]
+    legacy_files_ready = legacy_config_path.exists() and legacy_db_path.exists()
+    future_folders_ready = all(item["exists"] for item in future_folder_items)
+    if not legacy_files_ready:
+        readiness_status = "Not ready"
+        readiness_class = "bad"
+        readiness_detail = "Legacy config.json and library.db must both exist before cutover planning."
+    elif future_folders_ready:
+        readiness_status = "Ready for manual cutover planning"
+        readiness_class = "good"
+        readiness_detail = "Required legacy files exist and the future Application Support folder structure appears ready. No cutover has happened."
+    else:
+        readiness_status = "Partially ready"
+        readiness_class = "warn"
+        readiness_detail = "Required legacy files exist, but one or more future Application Support folders are missing."
+
+    dry_run_plan = [
+        f"config.json legacy path -> future config path: {legacy_config_path} -> {future_config_path}",
+        f"library.db legacy path -> future db path: {legacy_db_path} -> {future_db_path}",
+        f"cache folder preparation only: confirm/create later if approved: {future_cache_dir}",
+        f"logs folder preparation only: confirm/create later if approved: {future_logs_dir}",
+        f"exports folder preparation only: confirm/create later if approved: {future_exports_dir}",
+        f"backups folder preparation only: confirm/create later if approved: {future_backups_dir}",
+    ]
+    manual_cutover_checklist = [
+        "Confirm this dry-run page reports Ready for manual cutover planning.",
+        "Confirm runtime mode is still legacy-app-local before beginning a future cutover.",
+        "Stop the Flask server before any future manual copy or runtime marker change.",
+        "Make and verify a migration backup of config.json and library.db.",
+        "Manually prepare the Application Support folder structure before copying live data.",
+        "Copy config.json and library.db only during a separate approved cutover step.",
+        "Create the runtime marker or config flag only during a separate approved cutover step.",
+        "Restart on port 8765 and verify admin login, viewer login, counts, scans, cache, logs, exports, and backups.",
+        "Verify Caddy remains unchanged and still points to the same Flask app port.",
+    ]
+    rollback_checklist = [
+        "Stop the Flask server before rollback.",
+        "Remove or disable the app-support runtime marker/config flag only during an approved rollback step.",
+        "Restart with legacy-app-local runtime paths.",
+        "Confirm legacy config.json and library.db are still present and unchanged.",
+        "Verify admin login, viewer login, library counts, scans, cache, logs, exports, and backups.",
+        "Leave the Application Support copy in place until the legacy rollback has been verified.",
+    ]
+    warnings = [
+        "This page is read-only.",
+        "It does not create folders.",
+        "It does not copy files.",
+        "It does not move files.",
+        "It does not delete files.",
+        "It does not create the runtime marker.",
+        "It does not edit config.json.",
+        "It does not switch runtime mode.",
+        "It does not change Caddy.",
+    ]
+    return {
+        "about": get_about_info(),
+        "runtime": runtime_status,
+        "legacy_base": str(legacy_base),
+        "future_base": str(future_base),
+        "current_paths": current_paths,
+        "future_paths": future_paths,
+        "dry_run_plan": dry_run_plan,
+        "manual_cutover_checklist": manual_cutover_checklist,
+        "rollback_checklist": rollback_checklist,
+        "warnings": warnings,
+        "readiness_status": readiness_status,
+        "readiness_class": readiness_class,
+        "readiness_detail": readiness_detail,
+        "legacy_files_ready": legacy_files_ready,
+        "future_folders_ready": future_folders_ready,
+        "no_cutover_note": "No cutover has happened. This page only reports what a future manual cutover would need.",
     }
 
 
@@ -6830,7 +6962,7 @@ RUNTIME_PATHS_ADMIN_HTML = """
 """+ADMIN_TABS_HTML+"""
 <section class="panel settings-hero">
   <div><h1>Runtime Paths</h1><p class=muted style="margin:0">Read-only view of the resolved data paths used by the running app.</p></div>
-  <div class=settings-hero-actions><a class=btn href="/admin/app-support-readiness">App Support readiness</a><a class=btn href="/admin/app-support-marker-preview">Marker preview</a><a class=btn href="/admin/app-support-switch-preview">Switch preview</a><a class=btn href="/admin/app-support-status">App Support status</a><a class=btn href="/admin/package-preflight">Package preflight</a><a class=btn href="/settings">Settings</a></div>
+  <div class=settings-hero-actions><a class=btn href="/admin/app-support-dry-run">App Support dry run</a><a class=btn href="/admin/app-support-readiness">App Support readiness</a><a class=btn href="/admin/app-support-marker-preview">Marker preview</a><a class=btn href="/admin/app-support-switch-preview">Switch preview</a><a class=btn href="/admin/app-support-status">App Support status</a><a class=btn href="/admin/package-preflight">Package preflight</a><a class=btn href="/settings">Settings</a></div>
 </section>
 <section class="panel settings-card">
   <h2>Runtime mode</h2>
@@ -6862,7 +6994,7 @@ APP_SUPPORT_SWITCH_PREVIEW_HTML = """
 """+ADMIN_TABS_HTML+"""
 <section class="panel settings-hero">
   <div><h1>App Support Switch Preview</h1><p class=muted style="margin:0">Read-only plan for a later explicit runtime mode switch.</p></div>
-  <div class=settings-hero-actions><a class=btn href="/admin/app-support-readiness">App Support readiness</a><a class=btn href="/admin/app-support-marker-preview">Marker preview</a><a class=btn href="/admin/runtime-paths">Runtime paths</a><a class=btn href="/admin/migration-cutover-plan">Cutover plan</a><a class=btn href="/admin/app-support-status">App Support status</a></div>
+  <div class=settings-hero-actions><a class=btn href="/admin/app-support-dry-run">App Support dry run</a><a class=btn href="/admin/app-support-readiness">App Support readiness</a><a class=btn href="/admin/app-support-marker-preview">Marker preview</a><a class=btn href="/admin/runtime-paths">Runtime paths</a><a class=btn href="/admin/migration-cutover-plan">Cutover plan</a><a class=btn href="/admin/app-support-status">App Support status</a></div>
 </section>
 <section class="panel settings-card">
   <h2>Current mode</h2>
@@ -6895,7 +7027,7 @@ APP_SUPPORT_READINESS_HTML = """
 """+ADMIN_TABS_HTML+"""
 <section class="panel settings-hero">
   <div><h1>App Support Readiness</h1><p class=muted style="margin:0">Read-only validator for later manual cutover planning.</p></div>
-  <div class=settings-hero-actions><a class=btn href="/admin/app-support-marker-preview">Marker preview</a><a class=btn href="/admin/app-support-switch-preview">Switch preview</a><a class=btn href="/admin/runtime-paths">Runtime paths</a><a class=btn href="/admin/migration-cutover-plan">Cutover plan</a></div>
+  <div class=settings-hero-actions><a class=btn href="/admin/app-support-dry-run">App Support dry run</a><a class=btn href="/admin/app-support-marker-preview">Marker preview</a><a class=btn href="/admin/app-support-switch-preview">Switch preview</a><a class=btn href="/admin/runtime-paths">Runtime paths</a><a class=btn href="/admin/migration-cutover-plan">Cutover plan</a></div>
 </section>
 <section class="panel settings-card">
   <h2>Readiness status</h2>
@@ -6928,7 +7060,7 @@ APP_SUPPORT_MARKER_PREVIEW_HTML = """
 """+ADMIN_TABS_HTML+"""
 <section class="panel settings-hero">
   <div><h1>App Support Marker Preview</h1><p class=muted style="margin:0">Read-only preview of the future runtime mode marker.</p></div>
-  <div class=settings-hero-actions><a class=btn href="/admin/app-support-readiness">App Support readiness</a><a class=btn href="/admin/app-support-switch-preview">Switch preview</a><a class=btn href="/admin/runtime-paths">Runtime paths</a></div>
+  <div class=settings-hero-actions><a class=btn href="/admin/app-support-dry-run">App Support dry run</a><a class=btn href="/admin/app-support-readiness">App Support readiness</a><a class=btn href="/admin/app-support-switch-preview">Switch preview</a><a class=btn href="/admin/runtime-paths">Runtime paths</a></div>
 </section>
 <section class="panel settings-card">
   <h2>Current runtime</h2>
@@ -6957,6 +7089,66 @@ APP_SUPPORT_MARKER_PREVIEW_HTML = """
 <section class="panel settings-card" style="margin-top:14px">
   <h2>Warnings</h2>
   <div class=warning-note>{{ data.warning }}</div>
+</section>
+</main></body></html>
+"""
+
+
+APP_SUPPORT_DRY_RUN_HTML = """
+<!doctype html><html><head><meta name=viewport content="width=device-width, initial-scale=1"><title>App Support Dry Run</title>"""+BASE_STYLE+"""
+<style>
+.dry-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px}.dry-card{padding:14px;border-radius:16px;border:1px solid rgba(148,163,184,.16);background:rgba(2,6,23,.28)}.dry-card h3{margin:0 0 7px}.dry-path{font-size:12px;color:var(--muted);word-break:break-all}.status-good{color:#bbf7d0;font-weight:800}.status-warn{color:#fde68a;font-weight:800}.status-bad{color:#fecaca;font-weight:800}.warning-note{padding:12px;border-radius:16px;border:1px solid rgba(245,158,11,.28);background:rgba(245,158,11,.09);color:#fde68a;line-height:1.45}.safe-note{padding:12px;border-radius:16px;border:1px solid rgba(52,211,153,.22);background:rgba(16,185,129,.10);color:#d1fae5;line-height:1.45}.dry-kv{display:grid;gap:8px;margin-top:12px}.dry-kv div{display:grid;grid-template-columns:210px minmax(0,1fr);gap:10px;padding:10px;border-radius:14px;background:rgba(2,6,23,.26);border:1px solid rgba(148,163,184,.12)}.dry-kv b{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.06em}.dry-kv span{word-break:break-all}.dry-list{display:grid;gap:8px}.dry-list li{padding:10px 12px;border-radius:14px;border:1px solid rgba(148,163,184,.14);background:rgba(2,6,23,.24);line-height:1.45}.dry-plan{white-space:pre-wrap;word-break:break-word;padding:12px;border-radius:15px;border:1px solid rgba(148,163,184,.16);background:rgba(2,6,23,.54);color:#dbeafe;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;line-height:1.55}@media(max-width:750px){.dry-kv div{grid-template-columns:1fr}.settings-hero-actions{display:grid;width:100%}}
+</style></head><body>"""+NAV_HTML+"""
+<main class=shell style="max-width:1100px">
+"""+ADMIN_TABS_HTML+"""
+<section class="panel settings-hero">
+  <div><h1>App Support Dry Run</h1><p class=muted style="margin:0">Grouped read-only preparation view for a future manual move to Application Support.</p></div>
+  <div class=settings-hero-actions><a class=btn href="/admin/runtime-paths">Runtime paths</a><a class=btn href="/admin/app-support-switch-preview">Switch preview</a><a class=btn href="/admin/app-support-readiness">App Support readiness</a><a class=btn href="/admin/app-support-marker-preview">Marker preview</a></div>
+</section>
+<section class="panel settings-card">
+  <h2>Read-only warnings</h2>
+  <div class=warning-note><ul class=dry-list>{% for item in data.warnings %}<li>{{ item }}</li>{% endfor %}</ul></div>
+</section>
+<section class="panel settings-card" style="margin-top:14px">
+  <h2>Runtime mode</h2>
+  <div class=safe-note>{{ data.no_cutover_note }}</div>
+  <div class=dry-kv>
+    <div><b>Current runtime mode</b><span>{{ data.runtime.mode }}</span></div>
+    <div><b>Current data folder</b><span>{{ data.runtime.data_dir }}</span></div>
+    <div><b>Legacy base</b><span>{{ data.legacy_base }}</span></div>
+    <div><b>Future App Support base</b><span>{{ data.future_base }}</span></div>
+  </div>
+</section>
+<section class="panel settings-card" style="margin-top:14px">
+  <h2>Current legacy paths</h2>
+  <div class=dry-grid>{% for item in data.current_paths %}<article class=dry-card><h3>{{ item.label }}</h3><p class="status-{{ item.class }}">{{ item.status }} · {{ item.kind }}</p><p class=dry-path>{{ item.path }}</p></article>{% endfor %}</div>
+</section>
+<section class="panel settings-card" style="margin-top:14px">
+  <h2>Future App Support paths</h2>
+  <div class=dry-grid>{% for item in data.future_paths %}<article class=dry-card><h3>{{ item.label }}</h3><p class="status-{{ item.class }}">{{ item.status }} · {{ item.kind }}</p><p class=dry-path>{{ item.path }}</p></article>{% endfor %}</div>
+</section>
+<section class="panel settings-card" style="margin-top:14px">
+  <h2>Dry-run copy plan</h2>
+  <pre class=dry-plan>{% for item in data.dry_run_plan %}{{ item }}
+{% endfor %}</pre>
+</section>
+<section class="panel settings-card" style="margin-top:14px">
+  <h2>Manual cutover checklist</h2>
+  <ol class=dry-list>{% for item in data.manual_cutover_checklist %}<li>{{ item }}</li>{% endfor %}</ol>
+</section>
+<section class="panel settings-card" style="margin-top:14px">
+  <h2>Rollback checklist</h2>
+  <ol class=dry-list>{% for item in data.rollback_checklist %}<li>{{ item }}</li>{% endfor %}</ol>
+</section>
+<section class="panel settings-card" style="margin-top:14px">
+  <h2>Final readiness summary</h2>
+  <div class=dry-kv>
+    <div><b>Status</b><span class="status-{{ data.readiness_class }}">{{ data.readiness_status }}</span></div>
+    <div><b>Legacy files ready</b><span>{{ "Yes" if data.legacy_files_ready else "No" }}</span></div>
+    <div><b>Future folders ready</b><span>{{ "Yes" if data.future_folders_ready else "No" }}</span></div>
+    <div><b>Cutover state</b><span>No cutover has happened.</span></div>
+  </div>
+  <div class=warning-note style="margin-top:12px">{{ data.readiness_detail }}</div>
 </section>
 </main></body></html>
 """
@@ -7333,6 +7525,20 @@ def api_admin_app_support_marker_preview():
     if not require_admin():
         return jsonify({"ok": False, "error": "admin_required"}), 403
     return jsonify({"ok": True, "data": get_app_support_marker_preview_data()})
+
+
+@app.route("/admin/app-support-dry-run")
+def app_support_dry_run():
+    if not require_admin():
+        return redirect(url_for("login") if not require_login() else url_for("index"))
+    return render_template_string(APP_SUPPORT_DRY_RUN_HTML, active="settings", admin_section="settings", data=get_app_support_dry_run_data())
+
+
+@app.route("/api/admin/app-support-dry-run")
+def api_admin_app_support_dry_run():
+    if not require_admin():
+        return jsonify({"ok": False, "error": "admin_required"}), 403
+    return jsonify({"ok": True, "data": get_app_support_dry_run_data()})
 
 
 @app.route("/admin/app-support-prep")
