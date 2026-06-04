@@ -153,6 +153,21 @@ def local_url() -> str:
     return f"http://127.0.0.1:{port()}"
 
 
+def display_path(path_text: str) -> str:
+    """Show app-local paths compactly in the small control status panel."""
+    if not path_text:
+        return "not reported"
+    try:
+        path = Path(path_text)
+        app_parent = APP_DIR.parent
+        rel = path.relative_to(app_parent)
+        if rel == Path("app"):
+            return "app/"
+        return str(rel)
+    except Exception:
+        return path_text
+
+
 def is_port_open(host: str = "127.0.0.1", check_port: int | None = None) -> bool:
     check_port = check_port or port()
     try:
@@ -1377,6 +1392,8 @@ class ControlApp(tk.Tk):
                 return
 
             server = data.get("server", {})
+            app_info = data.get("app", {})
+            runtime = data.get("runtime_paths", {}) or {}
             library = data.get("library") or data.get("counts", {})
             scan = data.get("scan", {})
             alerts = data.get("alerts", {})
@@ -1387,6 +1404,11 @@ class ControlApp(tk.Tk):
             missing_total = int(library.get("missing_movies", 0) or 0) + int(library.get("missing_episodes", 0) or 0)
             auth_text = self.api.auth_message or ("Signed in" if self.api.logged_in else "Not signed in")
             scan_state = "running" if scan.get("running") else "idle"
+            runtime_mode = str(runtime.get("mode") or app_info.get("runtime_mode") or "legacy-app-local")
+            config_path = display_path(str(runtime.get("config_path") or app_info.get("config") or CONFIG_PATH))
+            db_path = display_path(str(runtime.get("db_path") or app_info.get("database") or ""))
+            data_dir = display_path(str(runtime.get("data_dir") or app_info.get("data_dir") or APP_DIR))
+            runtime_warning = "\nWARNING: app-support mode active" if runtime_mode == "app-support" else ""
             scan_bits = []
             for key in ("current_scan", "label", "message", "started_at"):
                 value = scan.get(key)
@@ -1397,6 +1419,10 @@ class ControlApp(tk.Tk):
                 f"Server: running on port {port()}\n"
                 f"Scan: {scan_state}{scan_detail}\n"
                 f"Auth: {auth_text}\n"
+                f"Runtime: {runtime_mode}\n"
+                f"Config: {config_path}\n"
+                f"Database: {db_path}\n"
+                f"Data folder: {data_dir}{runtime_warning}\n"
                 f"Caddy: {'running' if server.get('caddy_running') else 'not detected'}"
             )
             counts_text = (

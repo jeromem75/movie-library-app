@@ -76,7 +76,7 @@ MIGRATION_CUTOVER_PLAN_SUMMARY_PATH = MIGRATION_STAGE_DIR / "Movie Library Migra
 APP_SUPPORT_PREP_SUMMARY_PATH = APP_SUPPORT_DIR / "Movie Library App Support PREP SUMMARY.txt"
 APP_SUPPORT_VERIFY_SUMMARY_PATH = APP_SUPPORT_DIR / "Movie Library App Support VERIFY SUMMARY.txt"
 APP_SUPPORT_README_PATH = APP_SUPPORT_DIR / "README - Movie Library Data Folder.txt"
-UI_VERSION = "UI v28.5.26 - runtime data-location foundation"
+UI_VERSION = "UI v28.5.27 - runtime path visibility polish"
 
 
 def caddy_command_path():
@@ -7987,6 +7987,7 @@ def _latest_scan_history_item():
 
 def _admin_status_payload():
     about = get_about_info()
+    runtime_status = get_runtime_path_status()
     scan = get_scan_status()
     scheduled = scheduled_scan_summary()
     missing = missing_counts()
@@ -8003,11 +8004,18 @@ def _admin_status_payload():
         "server_time": now_label(),
         "app": {
             "app_dir": str(APP_DIR),
+            "data_dir": runtime_status["data_dir"],
+            "config": runtime_status["config_path"],
             "database": str(DB_PATH),
+            "cache_dir": runtime_status["cache_dir"],
+            "logs_dir": runtime_status["logs_dir"],
+            "backups_dir": runtime_status["backups_dir"],
+            "runtime_mode": runtime_status["mode"],
             "port": port,
             "local_url": f"http://127.0.0.1:{port}",
             "remote_url": "https://mjeromem75.dyndns.org",
         },
+        "runtime_paths": runtime_status,
         "library": {
             "movies": about.get("movie_count", 0),
             "tv_shows": about.get("tv_show_count", 0),
