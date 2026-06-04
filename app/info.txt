@@ -1,7 +1,7 @@
-Movie Library App - v28.5.26
-UI v28.5.26 - runtime data-location foundation
+Movie Library App - v28.5.27
+UI v28.5.27 - runtime path visibility polish
 
-Incremental build after v28.5.25. Adds a central runtime path helper so the app can resolve config, database, cache, logs, exports, and backups from one place. The default remains legacy app-local data paths; Application Support mode is available only behind a future explicit marker/config flag.
+Incremental build after v28.5.26. Adds clearer runtime path mode visibility in the admin status API and macOS control app status panel while preserving legacy app-local paths by default.
 
 Safety notes:
 - Does not switch live data paths by default.
