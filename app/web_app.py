@@ -76,7 +76,7 @@ MIGRATION_CUTOVER_PLAN_SUMMARY_PATH = MIGRATION_STAGE_DIR / "Movie Library Migra
 APP_SUPPORT_PREP_SUMMARY_PATH = APP_SUPPORT_DIR / "Movie Library App Support PREP SUMMARY.txt"
 APP_SUPPORT_VERIFY_SUMMARY_PATH = APP_SUPPORT_DIR / "Movie Library App Support VERIFY SUMMARY.txt"
 APP_SUPPORT_README_PATH = APP_SUPPORT_DIR / "README - Movie Library Data Folder.txt"
-UI_VERSION = "UI v28.5.29 - app-support switch preview"
+UI_VERSION = "UI v28.5.30 - app-support readiness validator"
 
 
 def caddy_command_path():
@@ -1552,6 +1552,62 @@ def get_app_support_switch_preview_data():
     }
 
 
+def _app_support_readiness_item(label, path, required=True):
+    path = Path(path)
+    exists = path.exists()
+    return {
+        "label": label,
+        "path": str(path),
+        "exists": exists,
+        "required": required,
+        "status": "Present" if exists else "Not found",
+        "class": "good" if exists else ("bad" if required else "warn"),
+    }
+
+
+def get_app_support_readiness_data():
+    """Return read-only readiness checks for a later App Support cutover."""
+    runtime_status = get_runtime_path_status()
+    still_legacy = runtime_status["mode"] == "legacy-app-local"
+    checks = [
+        _app_support_readiness_item("Legacy config", CONFIG_PATH),
+        _app_support_readiness_item("Legacy database", DB_PATH),
+        _app_support_readiness_item("Future App Support base folder", APP_SUPPORT_DIR),
+        _app_support_readiness_item("Future cache folder", APP_SUPPORT_CACHE_DIR),
+        _app_support_readiness_item("Future logs folder", APP_SUPPORT_LOGS_DIR),
+        _app_support_readiness_item("Future exports folder", APP_SUPPORT_DIR / "exports"),
+        _app_support_readiness_item("Future backups folder", APP_SUPPORT_DIR / "backups"),
+        _app_support_readiness_item("Migration backup summary", MIGRATION_BACKUP_SUMMARY_PATH),
+        _app_support_readiness_item("Migration stage verification summary", MIGRATION_STAGE_VERIFY_SUMMARY_PATH),
+        _app_support_readiness_item("Cutover readiness summary", MIGRATION_CUTOVER_READINESS_SUMMARY_PATH),
+    ]
+    required_ready_count = sum(1 for item in checks if item["required"] and item["exists"])
+    required_total = sum(1 for item in checks if item["required"])
+    if still_legacy and required_ready_count == required_total:
+        readiness_status = "Ready for manual cutover planning"
+        readiness_class = "good"
+    elif still_legacy and required_ready_count:
+        readiness_status = "Partially ready"
+        readiness_class = "warn"
+    else:
+        readiness_status = "Not ready"
+        readiness_class = "bad"
+    return {
+        "about": get_about_info(),
+        "runtime": runtime_status,
+        "checks": checks,
+        "legacy_safe": still_legacy,
+        "legacy_safe_status": "Yes" if still_legacy else "No",
+        "legacy_safe_class": "good" if still_legacy else "bad",
+        "ready_count": required_ready_count,
+        "total_count": required_total,
+        "readiness_status": readiness_status,
+        "readiness_class": readiness_class,
+        "warning": "WARNING: app-support mode is already active." if runtime_status["is_app_support"] else "",
+        "note": "This validator is read-only. It does not switch runtime mode, create marker files, edit config.json, copy data, move data, delete data, migrate data, edit Caddy, or change scanner logic.",
+    }
+
+
 def _dir_stats(path):
     """Return a lightweight count/size summary for a directory."""
     root = Path(path)
@@ -2913,6 +2969,7 @@ def get_package_preflight_preview_data():
         "/api/admin/package-preflight-preview",
         "/api/admin/runtime-paths",
         "/api/admin/app-support-switch-preview",
+        "/api/admin/app-support-readiness",
         "/api/admin/test-dmg-status-preview",
         "/api/admin/app-support-prep-preview",
         "/api/admin/app-support-status-preview",
@@ -6540,7 +6597,7 @@ MIGRATION_CUTOVER_PLAN_PREVIEW_HTML = """
   <span class="status-{{ data.overall_class }}">{{ data.overall_status }}</span>
   <h1>Migration Cutover Plan</h1>
   <p class=muted>This creates/reads a human-readable plan for the later live-data switch to Application Support. It is still not the switch itself.</p>
-  <div class=settings-hero-actions><a class="btn primary" href="/admin/migration-cutover-readiness">Cutover readiness</a><a class=btn href="/admin/app-support-switch-preview">Switch preview</a><a class=btn href="/admin/migration-stage-verify">Verify stage</a><a class=btn href="/admin/migration-backup-verify">Verify backup</a><a class=btn href="/admin/app-support-status">App Support status</a><a class=btn href="/admin/package-preflight">Package preflight</a><a class=btn href="/settings">Settings</a></div>
+  <div class=settings-hero-actions><a class="btn primary" href="/admin/migration-cutover-readiness">Cutover readiness</a><a class=btn href="/admin/app-support-readiness">App Support readiness</a><a class=btn href="/admin/app-support-switch-preview">Switch preview</a><a class=btn href="/admin/migration-stage-verify">Verify stage</a><a class=btn href="/admin/migration-backup-verify">Verify backup</a><a class=btn href="/admin/app-support-status">App Support status</a><a class=btn href="/admin/package-preflight">Package preflight</a><a class=btn href="/settings">Settings</a></div>
 </section>
 <section class="panel settings-card" style="margin-top:14px">
   <h2>Planned path split</h2>
@@ -6748,7 +6805,7 @@ RUNTIME_PATHS_ADMIN_HTML = """
 """+ADMIN_TABS_HTML+"""
 <section class="panel settings-hero">
   <div><h1>Runtime Paths</h1><p class=muted style="margin:0">Read-only view of the resolved data paths used by the running app.</p></div>
-  <div class=settings-hero-actions><a class=btn href="/admin/app-support-switch-preview">Switch preview</a><a class=btn href="/admin/app-support-status">App Support status</a><a class=btn href="/admin/package-preflight">Package preflight</a><a class=btn href="/settings">Settings</a></div>
+  <div class=settings-hero-actions><a class=btn href="/admin/app-support-readiness">App Support readiness</a><a class=btn href="/admin/app-support-switch-preview">Switch preview</a><a class=btn href="/admin/app-support-status">App Support status</a><a class=btn href="/admin/package-preflight">Package preflight</a><a class=btn href="/settings">Settings</a></div>
 </section>
 <section class="panel settings-card">
   <h2>Runtime mode</h2>
@@ -6780,7 +6837,7 @@ APP_SUPPORT_SWITCH_PREVIEW_HTML = """
 """+ADMIN_TABS_HTML+"""
 <section class="panel settings-hero">
   <div><h1>App Support Switch Preview</h1><p class=muted style="margin:0">Read-only plan for a later explicit runtime mode switch.</p></div>
-  <div class=settings-hero-actions><a class=btn href="/admin/runtime-paths">Runtime paths</a><a class=btn href="/admin/migration-cutover-plan">Cutover plan</a><a class=btn href="/admin/app-support-status">App Support status</a></div>
+  <div class=settings-hero-actions><a class=btn href="/admin/app-support-readiness">App Support readiness</a><a class=btn href="/admin/runtime-paths">Runtime paths</a><a class=btn href="/admin/migration-cutover-plan">Cutover plan</a><a class=btn href="/admin/app-support-status">App Support status</a></div>
 </section>
 <section class="panel settings-card">
   <h2>Current mode</h2>
@@ -6799,6 +6856,39 @@ APP_SUPPORT_SWITCH_PREVIEW_HTML = """
   <h2>Safety checklist before switching</h2>
   <ol class=switch-list>{% for item in data.checklist %}<li>{{ item }}</li>{% endfor %}</ol>
   <div class=warning-note style="margin-top:12px">{{ data.warning }}</div>
+</section>
+</main></body></html>
+"""
+
+
+APP_SUPPORT_READINESS_HTML = """
+<!doctype html><html><head><meta name=viewport content="width=device-width, initial-scale=1"><title>App Support Readiness</title>"""+BASE_STYLE+"""
+<style>
+.readiness-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px}.readiness-card{padding:14px;border-radius:16px;border:1px solid rgba(148,163,184,.16);background:rgba(2,6,23,.28)}.readiness-card h3{margin:0 0 7px}.readiness-path{font-size:12px;color:var(--muted);word-break:break-all}.status-good{color:#bbf7d0;font-weight:800}.status-warn{color:#fde68a;font-weight:800}.status-bad{color:#fecaca;font-weight:800}.warning-note{padding:12px;border-radius:16px;border:1px solid rgba(245,158,11,.28);background:rgba(245,158,11,.09);color:#fde68a;line-height:1.45}.safe-note{padding:12px;border-radius:16px;border:1px solid rgba(52,211,153,.22);background:rgba(16,185,129,.10);color:#d1fae5;line-height:1.45}.readiness-kv{display:grid;gap:8px;margin-top:12px}.readiness-kv div{display:grid;grid-template-columns:180px minmax(0,1fr);gap:10px;padding:10px;border-radius:14px;background:rgba(2,6,23,.26);border:1px solid rgba(148,163,184,.12)}.readiness-kv b{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.06em}.readiness-kv span{word-break:break-all}@media(max-width:750px){.readiness-kv div{grid-template-columns:1fr}.settings-hero-actions{display:grid;width:100%}}
+</style></head><body>"""+NAV_HTML+"""
+<main class=shell style="max-width:1100px">
+"""+ADMIN_TABS_HTML+"""
+<section class="panel settings-hero">
+  <div><h1>App Support Readiness</h1><p class=muted style="margin:0">Read-only validator for later manual cutover planning.</p></div>
+  <div class=settings-hero-actions><a class=btn href="/admin/app-support-switch-preview">Switch preview</a><a class=btn href="/admin/runtime-paths">Runtime paths</a><a class=btn href="/admin/migration-cutover-plan">Cutover plan</a></div>
+</section>
+<section class="panel settings-card">
+  <h2>Readiness status</h2>
+  {% if data.warning %}<div class=warning-note>{{ data.warning }}</div>{% else %}<div class=safe-note>{{ data.note }}</div>{% endif %}
+  <div class=readiness-kv>
+    <div><b>Status</b><span class="status-{{ data.readiness_class }}">{{ data.readiness_status }}</span></div>
+    <div><b>Runtime mode</b><span>{{ data.runtime.mode }}</span></div>
+    <div><b>Still legacy safe</b><span class="status-{{ data.legacy_safe_class }}">{{ data.legacy_safe_status }}</span></div>
+    <div><b>Checks present</b><span>{{ data.ready_count }} / {{ data.total_count }}</span></div>
+  </div>
+</section>
+<section class="panel settings-card" style="margin-top:14px">
+  <h2>Validator checks</h2>
+  <div class=readiness-grid>{% for item in data.checks %}<article class=readiness-card><h3>{{ item.label }}</h3><p class="status-{{ item.class }}">{{ item.status }}</p><p class=readiness-path>{{ item.path }}</p></article>{% endfor %}</div>
+</section>
+<section class="panel settings-card" style="margin-top:14px">
+  <h2>Safety</h2>
+  <div class=warning-note>This page must remain read-only. It does not perform cutover or prepare live data.</div>
 </section>
 </main></body></html>
 """
@@ -7147,6 +7237,20 @@ def api_admin_app_support_switch_preview():
     if not require_admin():
         return jsonify({"ok": False, "error": "admin_required"}), 403
     return jsonify({"ok": True, "data": get_app_support_switch_preview_data()})
+
+
+@app.route("/admin/app-support-readiness")
+def app_support_readiness():
+    if not require_admin():
+        return redirect(url_for("login") if not require_login() else url_for("index"))
+    return render_template_string(APP_SUPPORT_READINESS_HTML, active="settings", admin_section="settings", data=get_app_support_readiness_data())
+
+
+@app.route("/api/admin/app-support-readiness")
+def api_admin_app_support_readiness():
+    if not require_admin():
+        return jsonify({"ok": False, "error": "admin_required"}), 403
+    return jsonify({"ok": True, "data": get_app_support_readiness_data()})
 
 
 @app.route("/admin/app-support-prep")
