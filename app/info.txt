@@ -1,0 +1,11 @@
+Movie Library App - v28.5.25
+UI v28.5.25 - migration cutover plan helper
+
+Incremental build after v28.5.24. Adds a safe migration cutover plan helper and matching admin/control-app preview. The helper writes a readable future switch plan after cutover readiness, but it does not switch the live app to Application Support and does not copy staged config/database into the live target paths.
+
+Safety notes:
+- Does not switch live data paths.
+- Does not copy staged files into the live Application Support config/database targets.
+- Does not delete, move, restore, edit, or replace the current database/config.
+- Does not touch media folders, Tutor files, or the shared Caddyfile.
+- Does not add playback, streaming, transcoding, subtitles, or media-client features.

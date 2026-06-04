@@ -1,0 +1,80 @@
+#!/bin/zsh
+set -euo pipefail
+
+APP_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$APP_DIR"
+CONFIG_FILE="$APP_DIR/config.json"
+
+read_config_port() {
+  if command -v python3 >/dev/null 2>&1 && [ -f "$CONFIG_FILE" ]; then
+    python3 - "$CONFIG_FILE" <<'PY' 2>/dev/null || printf '8765\n'
+import json
+import sys
+try:
+    with open(sys.argv[1], "r", encoding="utf-8") as handle:
+        value = json.load(handle).get("web", {}).get("port", 8765)
+    port = int(value)
+    if 1 <= port <= 65535:
+        print(port)
+    else:
+        print(8765)
+except Exception:
+    print(8765)
+PY
+  else
+    printf '8765\n'
+  fi
+}
+
+PORT="$(read_config_port | tail -n 1)"
+LOCAL_URL="http://127.0.0.1:${PORT}"
+LOG_DIR="$APP_DIR/logs"
+mkdir -p "$LOG_DIR"
+LOG_FILE="$LOG_DIR/movie_library_launcher.log"
+SERVER_LOG="$LOG_DIR/movie_library_server.log"
+RUNNER="$APP_DIR/run_movie_library_server.command"
+
+log() {
+  printf '[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$1" >> "$LOG_FILE"
+}
+
+port_open() {
+  /usr/bin/nc -z 127.0.0.1 "$PORT" >/dev/null 2>&1
+}
+
+log "Movie Library launcher opened. Configured port: ${PORT}."
+
+if port_open; then
+  log "Port ${PORT} already responding; opening local library."
+  /usr/bin/open "$LOCAL_URL"
+  exit 0
+fi
+
+if [ ! -f "$RUNNER" ]; then
+  log "Runner missing: $RUNNER"
+  osascript -e 'display dialog "Movie Library runner script is missing. Check the app folder." buttons {"OK"} default button "OK" with icon caution' >/dev/null 2>&1 || true
+  exit 1
+fi
+
+if [ ! -x "$RUNNER" ]; then
+  chmod +x "$RUNNER" 2>/dev/null || true
+fi
+
+log "Starting server with existing runner."
+nohup "$RUNNER" >> "$SERVER_LOG" 2>&1 &
+
+for i in {1..20}; do
+  sleep 1
+  if port_open; then
+    log "Server responded on port ${PORT} after ${i}s; opening local library."
+    /usr/bin/open "$LOCAL_URL"
+    exit 0
+  fi
+  if [ "$i" = "5" ] || [ "$i" = "10" ] || [ "$i" = "15" ]; then
+    log "Still waiting for server on port ${PORT} after ${i}s."
+  fi
+done
+
+log "Server did not respond on port ${PORT} within 20 seconds."
+osascript -e 'display dialog "Movie Library did not respond within 20 seconds. Check logs/movie_library_server.log in the app folder." buttons {"OK"} default button "OK" with icon caution' >/dev/null 2>&1 || true
+exit 1

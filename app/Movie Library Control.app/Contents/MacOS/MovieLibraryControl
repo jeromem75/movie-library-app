@@ -1,0 +1,6 @@
+#!/bin/bash
+set -euo pipefail
+APP_BUNDLE_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
+APP_DIR="$(cd "$APP_BUNDLE_DIR/.." && pwd)"
+cd "$APP_DIR"
+exec /usr/bin/env python3 "$APP_DIR/mac_control_app.py"

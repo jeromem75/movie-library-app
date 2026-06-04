@@ -1,0 +1,68 @@
+{
+  "folder": "/Volumes/Media/Movies",
+  "web": {
+    "username": "Jay1",
+    "password": "M0v1e$!!",
+    "port": 8765,
+    "viewers": [
+      {
+        "username": "Laila",
+        "password": "La1laz3b3st",
+        "enabled": true
+      }
+    ]
+  },
+  "tv_folder": "/Volumes/Media/TV Series",
+  "movie_folders": [
+    "/Volumes/Media/Movies",
+    "/Volumes/Videos/SMovies"
+  ],
+  "tv_folders": [
+    "/Volumes/Media/TV Series",
+    "/Volumes/Videos/STV Series"
+  ],
+  "movie_sources": [
+    {
+      "name": "Main Movies",
+      "path": "/Volumes/Media/Movies",
+      "type": "Movies",
+      "enabled": true,
+      "last_scanned": "2026-06-03 22:53:31"
+    },
+    {
+      "name": "Movie folder 2",
+      "path": "/Volumes/Videos/SMovies",
+      "type": "Movies",
+      "enabled": true,
+      "last_scanned": "2026-06-03 22:53:31"
+    }
+  ],
+  "tv_sources": [
+    {
+      "name": "Main TV Shows",
+      "path": "/Volumes/Media/TV Series",
+      "type": "TV",
+      "enabled": true,
+      "last_scanned": "2026-06-03 22:59:55"
+    },
+    {
+      "name": "TV folder 2",
+      "path": "/Volumes/Videos/STV Series",
+      "type": "TV",
+      "enabled": true,
+      "last_scanned": "2026-06-03 23:00:13"
+    }
+  ],
+  "scheduled_scan": {
+    "enabled": false,
+    "frequency": "daily",
+    "time_of_day": "03:00",
+    "interval_minutes": 360,
+    "last_run_at": "",
+    "last_run_key": "",
+    "last_result": "Never run"
+  },
+  "ignored_alerts": [],
+  "review_alerts": [],
+  "alert_notes": {}
+}

@@ -1,0 +1,46 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+venv/
+**/.venv/
+**/venv/
+
+# Live databases / runtime data
+*.db
+*.sqlite
+*.sqlite3
+app/library.db
+
+# Runtime/generated folders
+app/cache/
+app/logs/
+app/build/
+app/exports/
+app/backups/
+app/restart.log
+
+# Migration/generated folders
+app/migration-backups/
+app/migration-staging/
+migration-backups/
+migration-staging/
+
+# Packages / archives
+*.zip
+*.dmg
+
+# Secrets/local overrides
+.env
+config.local.json
+
+# Hidden runtime cache
+.cache/
+app/.cache/
